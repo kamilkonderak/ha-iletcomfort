@@ -384,6 +384,14 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             for appliance in appliances:
                 if str(appliance.get("applianceCode", "")) == str(self.appliance_code):
                     self.appliance_meta = appliance
+                    _LOGGER.debug(
+                        "Appliance metadata: applianceType=%r modelNumber=%r "
+                        "sn8=%r online=%r",
+                        appliance.get("applianceType"),
+                        appliance.get("modelNumber"),
+                        appliance.get("sn8"),
+                        appliance.get("online"),
+                    )
                     return
         except Exception as err:  # noqa: BLE001 — retry on the next poll
             _LOGGER.debug("Could not fetch appliance metadata: %s", err)

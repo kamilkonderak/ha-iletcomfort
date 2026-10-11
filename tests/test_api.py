@@ -191,45 +191,6 @@ def test_query_status_decodes_full_frame():
     assert status.mode_name == "Heat"
 
 
-def test_query_status_retries_echo_only_frame_with_short_command():
-    """An echo-only standard response retries the captured short query form."""
-    client = _make_client()
-    echo_only = _c3_frame(b"\x01")
-    body = bytes([0x01, 0x00, 0x01]) + bytes(17)
-    with patch.object(
-        client,
-        "send_hex_command",
-        side_effect=[echo_only, _c3_frame(body)],
-    ) as mock_send:
-        status = client.query_status("APPL1")
-
-    assert status.mode == 1
-    assert [call.args[1] for call in mock_send.call_args_list] == [
-        build_c3_query(0x01),
-        "ffff010101ff",
-    ]
-
-
-def test_query_sensors_retries_echo_only_frame_with_short_command():
-    """An echo-only sensors response retries the captured short query form."""
-    client = _make_client()
-    echo_only = _c3_frame(b"\x02")
-    body = bytearray(32)
-    body[1] = 0x07
-    with patch.object(
-        client,
-        "send_hex_command",
-        side_effect=[echo_only, _c3_frame(bytes(body))],
-    ) as mock_send:
-        sensors = client.query_sensors("APPL1")
-
-    assert sensors.status_byte == 0x07
-    assert [call.args[1] for call in mock_send.call_args_list] == [
-        build_c3_query(0x02),
-        "ffff020202ff",
-    ]
-
-
 # Real frames captured from a Midea MSC-70D2N8-A (issue #11), compressor running.
 ISSUE_11_SENSORS_BODY = bytes(
     int(b, 16) for b in (

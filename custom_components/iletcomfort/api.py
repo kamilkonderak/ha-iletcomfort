@@ -722,28 +722,6 @@ class ILetComfortClient:
             f"msg={result.get('msg')}"
         )
 
-    def _send_query_with_echo_fallback(
-        self,
-        appliance_code: str,
-        command: str,
-        fallback_command: str,
-        subtype: int,
-    ) -> tuple[str, bytearray]:
-        """Retry a subtype-only response with the alternate short query."""
-        response_hex = self.send_hex_command(appliance_code, command)
-        raw = parse_hex_response(response_hex)
-        _body_type, body = extract_c3_body(raw)
-        if body == bytearray([subtype]) and command != fallback_command:
-            _LOGGER.debug(
-                "C3 subtype 0x%02x query returned an echo-only frame; "
-                "retrying with the short query command",
-                subtype,
-            )
-            response_hex = self.send_hex_command(appliance_code, fallback_command)
-            raw = parse_hex_response(response_hex)
-            _body_type, body = extract_c3_body(raw)
-        return response_hex, body
-
     def create_app_cert(self) -> AppCert:
         """Mint an app client certificate for the vendor's MQTT broker.
 
@@ -784,12 +762,10 @@ class ILetComfortClient:
         The query command itself is also profile-aware: the KJRH-120L's cloud
         rejects the standard long C3 query frame (code 1214) and needs a short
         ``ffff<ss><ss><ss>ff`` form, so the command is built via
-        ``build_query_command``. Other profiles start with the standard frame;
-        an exact subtype-only echo is retried once with the short form.
+        ``build_query_command``. Other profiles keep the standard frame.
         """
         # Imported lazily to avoid a circular import (model_profiles imports api).
         from .model_profiles import (
-            ModelProfile,
             apply_profile_to_status,
             build_query_command,
             resolve_profile,
@@ -797,13 +773,10 @@ class ILetComfortClient:
 
         profile = resolve_profile(sn8)
         command = build_query_command(profile, 0x01)
-        response_hex, body = self._send_query_with_echo_fallback(
-            appliance_code,
-            command,
-            build_query_command(ModelProfile.KJRH120L, 0x01),
-            0x01,
-        )
+        response_hex = self.send_hex_command(appliance_code, command)
         _LOGGER.debug("query_status raw response: %s", response_hex)
+        raw = parse_hex_response(response_hex)
+        _body_type, body = extract_c3_body(raw)
         if len(body) < STATUS_MIN_BODY_LEN:
             raise ApiError(
                 f"Status query returned a truncated frame "
@@ -820,24 +793,16 @@ class ILetComfortClient:
 
         ``sn8`` selects the query-command encoding: the KJRH-120L's cloud
         rejects the standard long C3 query frame (code 1214) and needs a short
-        ``ffff<ss><ss><ss>ff`` form. Unknown/None sn8 starts with the standard
-        frame; an exact subtype-only echo is retried once with the short form.
+        ``ffff<ss><ss><ss>ff`` form. Unknown/None sn8 uses the standard frame.
         """
         # Imported lazily to avoid a circular import (model_profiles imports api).
-        from .model_profiles import (
-            ModelProfile,
-            build_query_command,
-            resolve_profile,
-        )
+        from .model_profiles import build_query_command, resolve_profile
 
         command = build_query_command(resolve_profile(sn8), 0x02)
-        response_hex, body = self._send_query_with_echo_fallback(
-            appliance_code,
-            command,
-            build_query_command(ModelProfile.KJRH120L, 0x02),
-            0x02,
-        )
+        response_hex = self.send_hex_command(appliance_code, command)
         _LOGGER.debug("query_sensors raw response: %s", response_hex)
+        raw = parse_hex_response(response_hex)
+        _body_type, body = extract_c3_body(raw)
         if len(body) < SENSORS_MIN_BODY_LEN:
             raise ApiError(
                 f"Sensors query returned a truncated frame "

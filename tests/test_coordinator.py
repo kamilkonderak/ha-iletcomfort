@@ -305,7 +305,9 @@ async def test_recovery_after_sustained_logs_info_once(hass: HomeAssistant, capl
     assert len(recovered) == 2  # one each for status + sensors
 
 
-async def test_first_refresh_populates_appliance_meta_by_code(hass: HomeAssistant):
+async def test_first_refresh_populates_appliance_meta_by_code(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture,
+):
     """async_first_refresh_with_login caches the appliance whose code matches.
 
     Diagnostic-only metadata (issue #22): given a mocked list_appliances the
@@ -333,12 +335,23 @@ async def test_first_refresh_populates_appliance_meta_by_code(hass: HomeAssistan
     other = {"applianceCode": "OTHER", "applianceType": "0x00"}
     client.list_appliances.return_value = [other, matching]
 
-    with patch.object(
-        ILetComfortCoordinator, "async_config_entry_first_refresh", new=AsyncMock()
+    with (
+        caplog.at_level(logging.DEBUG),
+        patch.object(
+            ILetComfortCoordinator,
+            "async_config_entry_first_refresh",
+            new=AsyncMock(),
+        ),
     ):
         await coord.async_first_refresh_with_login()
 
     assert coord.appliance_meta == matching
+    assert (
+        "Appliance metadata: applianceType='0xC3' modelNumber='0' "
+        "sn8='171H120F' online='1'"
+    ) in caplog.text
+    assert "SECRETSN" not in caplog.text
+    assert "someone@example.com" not in caplog.text
 
 
 async def test_ensure_appliance_meta_failure_leaves_none_and_does_not_block(
