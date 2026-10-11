@@ -38,9 +38,10 @@ AQUAPURA (sn8 ``171000AU``, AQS Energie AQUAPURA split HPWH, issue #12)
 
 Known, unconfirmed model codes
 ------------------------------
-``17100007`` is the KJRH-120L2 listed in the vendor's C3 model catalogue. No
-hardware report or frame capture exists yet, so it deliberately has no decode
-profile and resolves to STANDARD.
+KJRH-120L2 (sn8 ``17100007``)
+    Uses the captured vendor ``base`` query (control group ``0x2010``). The
+    response layout and write commands are not decoded yet, so the profile
+    preserves raw frames and suppresses unvalidated values.
 
 For both ATW and AQUAPURA the tank temperature is routed to ``th_temp`` and the
 "Water Inlet Temperature" sensor (``twin_temp``) is left honest (no real inlet
@@ -61,7 +62,8 @@ from .api import MODE_HEAT, MODE_OFF, ITSSensors, ITSStatus
 ATW_SN8 = "171H120F"
 AQUAPURA_SN8 = "171000AU"
 KJRH120L_SN8 = "17100003"
-KJRH120L2_SN8 = "17100007"  # Known catalogue entry; no validated profile yet.
+KJRH120L2_SN8 = "17100007"
+KJRH120L2_QUERY = "aa14c300000000000003002010ffffffff00fffffc"
 
 
 class ModelProfile(Enum):
@@ -71,12 +73,14 @@ class ModelProfile(Enum):
     ATW = "atw"
     AQUAPURA = "aquapura"
     KJRH120L = "kjrh120l"
+    KJRH120L2 = "kjrh120l2"
 
 
 _SN8_PROFILES: dict[str, ModelProfile] = {
     ATW_SN8: ModelProfile.ATW,
     AQUAPURA_SN8: ModelProfile.AQUAPURA,
     KJRH120L_SN8: ModelProfile.KJRH120L,
+    KJRH120L2_SN8: ModelProfile.KJRH120L2,
 }
 
 
@@ -99,6 +103,8 @@ def build_query_command(profile: ModelProfile, subtype: int) -> str:
     """
     if profile is ModelProfile.KJRH120L:
         return "ffff%02x%02x%02xff" % (subtype, subtype, subtype)
+    if profile is ModelProfile.KJRH120L2:
+        return KJRH120L2_QUERY
     # Lazy import: api.py imports model_profiles, so importing build_c3_query at
     # module level would risk a circular import.
     from .api import build_c3_query
@@ -362,6 +368,16 @@ def decode_kjrh120l_status(body: bytearray | bytes) -> ITSStatus:
     return status
 
 
+def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
+    """Preserve a KJRH-120L2 base-query frame without guessing its layout."""
+    status = ITSStatus()
+    status.raw_body = bytes(body)
+    status.error_code = 0
+    status.comp_running = None
+    status.mode_name = "Unknown"
+    return status
+
+
 # ---------------------------------------------------------------------------
 # KJRH-120L WRITE / control commands (issue #35)
 # ---------------------------------------------------------------------------
@@ -408,6 +424,8 @@ def apply_profile_to_status(profile: ModelProfile, status: ITSStatus) -> ITSStat
         return decode_atw_status(status.raw_body)
     if profile is ModelProfile.KJRH120L:
         return decode_kjrh120l_status(status.raw_body)
+    if profile is ModelProfile.KJRH120L2:
+        return decode_kjrh120l2_status(status.raw_body)
     return status
 
 
@@ -437,7 +455,7 @@ def apply_profile_to_sensors(
       shows them unavailable rather than the misleading constant -35 the STANDARD
       decode would produce (issues #21 / #5).
     """
-    if profile is ModelProfile.KJRH120L:
+    if profile in (ModelProfile.KJRH120L, ModelProfile.KJRH120L2):
         return dataclasses.replace(sensors, **_KJRH120L_SUPPRESSED_TEMPS)
     if profile in (ModelProfile.ATW, ModelProfile.AQUAPURA):
         if profile is ModelProfile.ATW and atw_sensors_are_placeholder(
@@ -457,6 +475,8 @@ __all__ = [
     "KJRH120L_DHW_TEMP_MAX",
     "KJRH120L_DHW_TEMP_MIN",
     "KJRH120L_SN8",
+    "KJRH120L2_QUERY",
+    "KJRH120L2_SN8",
     "KJRH120L_TEMP_MAX",
     "KJRH120L_TEMP_MIN",
     "ModelProfile",
@@ -467,6 +487,7 @@ __all__ = [
     "build_query_command",
     "decode_atw_status",
     "decode_kjrh120l_status",
+    "decode_kjrh120l2_status",
     "kjrh120l_has_zone1",
     "resolve_profile",
 ]

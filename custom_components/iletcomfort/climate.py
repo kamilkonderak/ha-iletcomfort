@@ -115,7 +115,7 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
-        if self._is_kjrh120l_dual:
+        if self._is_kjrh120l_dual or self._profile is ModelProfile.KJRH120L2:
             return ClimateEntityFeature(0)
         if self.hvac_mode is HVACMode.FAN_ONLY:
             return (
@@ -125,10 +125,10 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
         return self._attr_supported_features
 
     def _ensure_climate_control_supported(self) -> None:
-        if self._is_kjrh120l_dual:
+        if self._is_kjrh120l_dual or self._profile is ModelProfile.KJRH120L2:
             raise HomeAssistantError(
-                "Zone-1 control is unavailable because its write command has not "
-                "been validated; use the DHW setpoint entity for hot water"
+                "Climate control is unavailable because this model's write "
+                "command has not been validated"
             )
 
     @property

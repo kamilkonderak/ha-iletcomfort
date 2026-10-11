@@ -28,6 +28,7 @@ from custom_components.iletcomfort.model_profiles import (
     AQUAPURA_SN8,
     ATW_SN8,
     KJRH120L2_SN8,
+    KJRH120L2_QUERY,
     KJRH120L_DHW_OFF,
     KJRH120L_DHW_ON,
     KJRH120L_SN8,
@@ -130,10 +131,12 @@ def test_resolve_profile_kjrh120l_sn8():
     assert resolve_profile(KJRH120L_SN8) is ModelProfile.KJRH120L
 
 
-def test_known_unconfirmed_kjrh120l2_sn8_falls_back_to_standard():
-    """The known 120L2 model remains on the safe default until hardware data exists."""
+def test_kjrh120l2_sn8_uses_captured_base_query_profile():
+    """The captured 120L2 query is gated strictly by its sn8."""
     assert KJRH120L2_SN8 == "17100007"
-    assert resolve_profile(KJRH120L2_SN8) is ModelProfile.STANDARD
+    assert resolve_profile(KJRH120L2_SN8) is ModelProfile.KJRH120L2
+    assert build_query_command(ModelProfile.KJRH120L2, 0x01) == KJRH120L2_QUERY
+    assert build_query_command(ModelProfile.KJRH120L2, 0x02) == KJRH120L2_QUERY
 
 
 # ---------------------------------------------------------------------------

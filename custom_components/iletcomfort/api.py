@@ -766,8 +766,10 @@ class ILetComfortClient:
         """
         # Imported lazily to avoid a circular import (model_profiles imports api).
         from .model_profiles import (
+            ModelProfile,
             apply_profile_to_status,
             build_query_command,
+            decode_kjrh120l2_status,
             resolve_profile,
         )
 
@@ -783,7 +785,11 @@ class ILetComfortClient:
                 f"({len(body)} body bytes); device may be offline or "
                 f"unsupported. Raw: {response_hex}"
             )
-        status = decode_its_status(body)
+        status = (
+            decode_kjrh120l2_status(body)
+            if profile is ModelProfile.KJRH120L2
+            else decode_its_status(body)
+        )
         return apply_profile_to_status(profile, status)
 
     def query_sensors(
@@ -796,9 +802,14 @@ class ILetComfortClient:
         ``ffff<ss><ss><ss>ff`` form. Unknown/None sn8 uses the standard frame.
         """
         # Imported lazily to avoid a circular import (model_profiles imports api).
-        from .model_profiles import build_query_command, resolve_profile
+        from .model_profiles import (
+            ModelProfile,
+            build_query_command,
+            resolve_profile,
+        )
 
-        command = build_query_command(resolve_profile(sn8), 0x02)
+        profile = resolve_profile(sn8)
+        command = build_query_command(profile, 0x02)
         response_hex = self.send_hex_command(appliance_code, command)
         _LOGGER.debug("query_sensors raw response: %s", response_hex)
         raw = parse_hex_response(response_hex)
@@ -809,6 +820,8 @@ class ILetComfortClient:
                 f"({len(body)} body bytes); device may be offline or "
                 f"unsupported. Raw: {response_hex}"
             )
+        if profile is ModelProfile.KJRH120L2:
+            return ITSSensors(raw_body=bytes(body))
         return decode_its_sensors(body)
 
     def set_device(

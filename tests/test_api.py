@@ -247,6 +247,7 @@ def test_query_status_marks_compressor_running_from_frequency():
 
 
 KJRH120L_SN8 = "17100003"
+KJRH120L2_SN8 = "17100007"
 
 
 def test_query_status_uses_short_command_for_kjrh120l():
@@ -262,6 +263,20 @@ def test_query_status_uses_short_command_for_kjrh120l():
         client.query_status("APPL1", sn8=KJRH120L_SN8)
 
     assert mock_send.call_args.args[1] == "ffff010101ff"
+
+
+def test_query_status_uses_captured_base_command_for_kjrh120l2():
+    """KJRH-120L2 uses the base query captured from the iLetComfort app."""
+    client = _make_client()
+    body = bytes([0x00, 0x20, 0x10]) + bytes(20)
+    with patch.object(
+        client, "send_hex_command", return_value=_c3_frame(body),
+    ) as mock_send:
+        client.query_status("APPL1", sn8=KJRH120L2_SN8)
+
+    assert mock_send.call_args.args[1] == (
+        "aa14c300000000000003002010ffffffff00fffffc"
+    )
 
 
 def test_query_status_uses_long_command_for_standard_sn8():
