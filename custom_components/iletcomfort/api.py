@@ -850,7 +850,23 @@ class ILetComfortClient:
         # Imported lazily to avoid a circular import (model_profiles imports api).
         from .model_profiles import ModelProfile, resolve_profile
 
-        if resolve_profile(sn8) is ModelProfile.KJRH120L:
+        profile = resolve_profile(sn8)
+        if profile is ModelProfile.KJRH120L2:
+            from .model_profiles import build_kjrh120l2_set_temperature
+
+            if temperature is None:
+                raise ApiError(
+                    "KJRH-120L2 currently supports DHW setpoint writes only"
+                )
+            command = build_kjrh120l2_set_temperature(int(temperature))
+            response_hex = self.send_hex_command(appliance_code, command)
+            return {
+                "sent": command,
+                "response": response_hex,
+                "effective_temp": int(temperature),
+            }
+
+        if profile is ModelProfile.KJRH120L:
             return self._set_device_kjrh120l(
                 appliance_code,
                 mode=mode,

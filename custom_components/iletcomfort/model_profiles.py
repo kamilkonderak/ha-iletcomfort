@@ -64,6 +64,9 @@ AQUAPURA_SN8 = "171000AU"
 KJRH120L_SN8 = "17100003"
 KJRH120L2_SN8 = "17100007"
 KJRH120L2_QUERY = "aa14c300000000000003002010ffffffff00fffffc"
+KJRH120L2_DHW_SETPOINT_INDEX = 20
+KJRH120L2_DHW_TEMP_MIN = 35
+KJRH120L2_DHW_TEMP_MAX = 60
 
 
 class ModelProfile(Enum):
@@ -369,13 +372,33 @@ def decode_kjrh120l_status(body: bytearray | bytes) -> ITSStatus:
 
 
 def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
-    """Preserve a KJRH-120L2 base-query frame without guessing its layout."""
+    """Decode confirmed KJRH-120L2 fields and preserve the raw frame."""
     status = ITSStatus()
     status.raw_body = bytes(body)
     status.error_code = 0
     status.comp_running = None
     status.mode_name = "Unknown"
+    if len(body) > KJRH120L2_DHW_SETPOINT_INDEX + 1:
+        dhw_setpoint = (
+            (body[KJRH120L2_DHW_SETPOINT_INDEX] << 8)
+            | body[KJRH120L2_DHW_SETPOINT_INDEX + 1]
+        ) / 10
+        status.t5s_def = dhw_setpoint
+        status.set_temperature = round(dhw_setpoint)
+        status.kjrh120l_dhw_setpoint = dhw_setpoint
     return status
+
+
+def build_kjrh120l2_set_temperature(temp: int) -> str:
+    """Build the captured framed KJRH-120L2 DHW setpoint command."""
+    value = int(temp * 10)
+    body = bytes.fromhex(
+        "00 20 10 ff ff ff ff 01 ff ff 00 07 02"
+    ) + value.to_bytes(2, "big")
+    frame = bytearray([0xAA, len(body) + 10, 0xC3, 0, 0, 0, 0, 0, 0, 0x02])
+    frame.extend(body)
+    frame.append((-sum(frame[1:])) & 0xFF)
+    return frame.hex()
 
 
 # ---------------------------------------------------------------------------
@@ -476,6 +499,9 @@ __all__ = [
     "KJRH120L_DHW_TEMP_MIN",
     "KJRH120L_SN8",
     "KJRH120L2_QUERY",
+    "KJRH120L2_DHW_SETPOINT_INDEX",
+    "KJRH120L2_DHW_TEMP_MAX",
+    "KJRH120L2_DHW_TEMP_MIN",
     "KJRH120L2_SN8",
     "KJRH120L_TEMP_MAX",
     "KJRH120L_TEMP_MIN",
@@ -488,6 +514,7 @@ __all__ = [
     "decode_atw_status",
     "decode_kjrh120l_status",
     "decode_kjrh120l2_status",
+    "build_kjrh120l2_set_temperature",
     "kjrh120l_has_zone1",
     "resolve_profile",
 ]

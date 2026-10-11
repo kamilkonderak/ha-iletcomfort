@@ -29,6 +29,7 @@ from custom_components.iletcomfort.model_profiles import (
     ATW_SN8,
     KJRH120L2_SN8,
     KJRH120L2_QUERY,
+    KJRH120L2_DHW_SETPOINT_INDEX,
     KJRH120L_DHW_OFF,
     KJRH120L_DHW_ON,
     KJRH120L_SN8,
@@ -38,6 +39,7 @@ from custom_components.iletcomfort.model_profiles import (
     apply_profile_to_sensors,
     apply_profile_to_status,
     build_kjrh120l_set_temperature,
+    build_kjrh120l2_set_temperature,
     build_query_command,
     decode_atw_status,
     decode_kjrh120l_status,
@@ -137,6 +139,25 @@ def test_kjrh120l2_sn8_uses_captured_base_query_profile():
     assert resolve_profile(KJRH120L2_SN8) is ModelProfile.KJRH120L2
     assert build_query_command(ModelProfile.KJRH120L2, 0x01) == KJRH120L2_QUERY
     assert build_query_command(ModelProfile.KJRH120L2, 0x02) == KJRH120L2_QUERY
+
+
+def test_decode_kjrh120l2_reads_dhw_setpoint_in_tenths():
+    """The captured 45 -> 50 C change identifies body[20:22] as tenths C."""
+    body = bytearray(116)
+    body[0:3] = b"\x00\x20\x10"
+    body[KJRH120L2_DHW_SETPOINT_INDEX:KJRH120L2_DHW_SETPOINT_INDEX + 2] = b"\x01\xf4"
+
+    status = decode_kjrh120l2_status(body)
+
+    assert status.t5s_def == 50.0
+    assert status.set_temperature == 50
+
+
+def test_build_kjrh120l2_dhw_write_matches_capture():
+    """50 C uses the captured field 0x07 framed write and checksum."""
+    assert build_kjrh120l2_set_temperature(50) == (
+        "aa19c300000000000002002010ffffffff01ffff00070201f4f9"
+    )
 
 
 # ---------------------------------------------------------------------------
