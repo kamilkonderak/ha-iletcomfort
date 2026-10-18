@@ -323,6 +323,38 @@ async def test_kjrh120l2_climate_sets_semantic_heating_setpoint():
     )
 
 
+async def test_kjrh120l2_curve_disables_manual_water_temperature():
+    status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
+    entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+    entity.coordinator.data["semantic"] = {
+        "2010": {
+            "zone1_curve_state": "on",
+            "zone1_temp_type": "water_temperature_type",
+            "zone1_temp_set": "30",
+        }
+    }
+
+    assert not (
+        entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    )
+    with pytest.raises(HomeAssistantError, match="weather curve"):
+        await entity.async_set_temperature(**{ATTR_TEMPERATURE: 30})
+    entity.coordinator.async_set_semantic_control.assert_not_awaited()
+
+
+def test_kjrh120l2_curve_keeps_room_temperature_control():
+    status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
+    entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+    entity.coordinator.data["semantic"] = {
+        "2010": {
+            "zone1_curve_state": "on",
+            "zone1_temp_type": "room_temperature_type",
+        }
+    }
+
+    assert entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+
+
 @pytest.mark.parametrize(
     ("method", "kwargs"),
     [

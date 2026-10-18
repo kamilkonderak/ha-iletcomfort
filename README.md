@@ -80,6 +80,20 @@ break established readings. Installer parameters and complete daily/weekly
 schedules are intentionally read-only until their multi-field update behavior
 is validated.
 
+The Zone-1 curve controls mirror the wired controller: a profile selector
+chooses **Standard**, **ECO**, or **Custom**, while the preset selector exposes
+Standard curves 1-8 and Custom. When a curve controls the Zone-1 water
+temperature, Home Assistant removes manual target-temperature control from the
+climate entity and rejects direct setpoint writes. Room-temperature control
+remains adjustable, matching the producer manual.
+
+The **Zone-1 Weather Curve Details** sensor shows the active family, Standard
+preset, temperature-control mode, outdoor temperature, ECO timer, and the
+device-reported Custom heating/cooling endpoints. For Custom curves it also
+estimates the active water target by interpolating those endpoints. The wired
+controller manual describes a curve offset, but no corresponding semantic field
+exists in the captured app protocol, so offset control is not exposed yet.
+
 ## Showing water temperatures on a dashboard
 
 Home Assistant's built-in thermostat card shows the climate entity's current

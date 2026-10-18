@@ -35,7 +35,11 @@ from .model_profiles import (
     kjrh120l_has_zone1,
     resolve_profile,
 )
-from .semantic import coerce_semantic_value, semantic_value
+from .semantic import (
+    coerce_semantic_value,
+    semantic_value,
+    zone1_manual_temperature_available,
+)
 
 # Query response mode (from device) → HA HVAC mode
 _QUERY_MODE_TO_HVAC: dict[int, HVACMode] = {
@@ -136,11 +140,10 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
         if self._is_kjrh120l_dual:
             return ClimateEntityFeature(0)
         if self._profile is ModelProfile.KJRH120L2:
-            return (
-                ClimateEntityFeature.TARGET_TEMPERATURE
-                | ClimateEntityFeature.TURN_ON
-                | ClimateEntityFeature.TURN_OFF
-            )
+            features = ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
+            if zone1_manual_temperature_available(self.coordinator.data):
+                features |= ClimateEntityFeature.TARGET_TEMPERATURE
+            return features
         if self.hvac_mode is HVACMode.FAN_ONLY:
             return (
                 self._attr_supported_features
@@ -272,6 +275,11 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     async def async_set_temperature(self, **kwargs: Any) -> None:
         self._ensure_climate_control_supported()
         if self._profile is ModelProfile.KJRH120L2:
+            if not zone1_manual_temperature_available(self.coordinator.data):
+                raise HomeAssistantError(
+                    "Manual temperature control is disabled while the Zone-1 "
+                    "weather curve controls water temperature"
+                )
             temp = kwargs.get(ATTR_TEMPERATURE)
             if temp is not None:
                 clamped = max(self.min_temp, min(float(temp), self.max_temp))

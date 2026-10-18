@@ -14,7 +14,7 @@ from .const import DOMAIN
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
 from .model_profiles import ModelProfile, resolve_profile
-from .semantic import semantic_value
+from .semantic import semantic_value, zone1_curve_enabled
 
 KJRH120L2_SEMANTIC_SWITCHES = (
     {
@@ -177,8 +177,7 @@ class ILetComfortKjrh120l2CurveSwitch(
 
     @property
     def is_on(self) -> bool:
-        status = (self.coordinator.data or {}).get("status")
-        return bool(status and status.kjrh120l2_curve_enabled)
+        return zone1_curve_enabled(self.coordinator.data)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self.coordinator.async_set_device(curve_enabled=True)

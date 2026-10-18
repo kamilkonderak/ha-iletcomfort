@@ -35,7 +35,10 @@ from .semantic import (
     iter_semantic_fields,
     semantic_field_name,
     semantic_value,
+    zone1_curve_details,
+    zone1_curve_profile,
 )
+from .model_profiles import ModelProfile, resolve_profile
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -538,6 +541,8 @@ async def async_setup_entry(
         ILetComfortSemanticSensor(coordinator, group, field)
         for group, field in iter_semantic_fields(coordinator.data)
     )
+    if resolve_profile(coordinator.sn8) is ModelProfile.KJRH120L2:
+        entities.append(ILetComfortCurveDetailsSensor(coordinator))
     async_add_entities(entities)
 
 
@@ -611,3 +616,26 @@ class ILetComfortSemanticSensor(
     @property
     def extra_state_attributes(self) -> dict[str, str]:
         return {"command_group": self._group}
+
+
+class ILetComfortCurveDetailsSensor(
+    CoordinatorEntity[ILetComfortCoordinator], SensorEntity,
+):
+    """Summarize Zone-1 curve family, preset, points, and ECO timing."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Zone-1 Weather Curve Details"
+    _attr_icon = "mdi:chart-bell-curve-cumulative"
+
+    def __init__(self, coordinator: ILetComfortCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.appliance_code}_zone1_curve_details"
+        self._attr_device_info = build_device_info(coordinator)
+
+    @property
+    def native_value(self) -> str:
+        return zone1_curve_profile(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return zone1_curve_details(self.coordinator.data)
