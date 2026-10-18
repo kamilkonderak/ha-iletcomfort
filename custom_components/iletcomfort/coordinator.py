@@ -38,6 +38,7 @@ from .const import (
     DEFAULT_REGION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    OPERATION_MODE_READ_ONLY,
     OPERATION_MODE_PHONE_APP,
     REGION_URLS,
     MQTT_STATUS_STALE_AFTER,
@@ -418,10 +419,13 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         encoding per model (e.g. the KJRH-120L's short commands vs the legacy
         C3 SET frame); see ``model_profiles`` and ``ILetComfortClient.set_device``.
         """
-        if self._operation_mode == OPERATION_MODE_PHONE_APP:
+        if self._operation_mode in (
+            OPERATION_MODE_READ_ONLY,
+            OPERATION_MODE_PHONE_APP,
+        ):
             raise HomeAssistantError(
-                "Control is disabled in phone app coexistence mode; "
-                "switch to HA primary mode to send commands"
+                "Control is disabled in read-only mode; switch to HA primary "
+                "mode to send commands"
             )
 
         sn8 = self.sn8

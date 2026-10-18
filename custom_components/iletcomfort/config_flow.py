@@ -33,6 +33,7 @@ from .const import (
     DEFAULT_REGION,
     DOMAIN,
     OPERATION_MODE_HA_PRIMARY,
+    OPERATION_MODE_READ_ONLY,
     OPERATION_MODE_PHONE_APP,
     REGION_EU,
     REGION_URLS,
@@ -217,6 +218,7 @@ class ILetComfortOptionsFlow(OptionsFlow):
                     SelectSelectorConfig(
                         options=[
                             OPERATION_MODE_HA_PRIMARY,
+                            OPERATION_MODE_READ_ONLY,
                             OPERATION_MODE_PHONE_APP,
                         ],
                         mode=SelectSelectorMode.DROPDOWN,

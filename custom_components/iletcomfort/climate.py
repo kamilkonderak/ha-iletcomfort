@@ -24,7 +24,7 @@ from .api import (
     QUERY_TO_SET_MODE,
     TEMP_RANGES,
 )
-from .const import DOMAIN
+from .const import DOMAIN, OPERATION_MODE_READ_ONLY
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
 from .model_profiles import (
@@ -115,6 +115,8 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
+        if self.coordinator._operation_mode == OPERATION_MODE_READ_ONLY:
+            return ClimateEntityFeature(0)
         if self._is_kjrh120l_dual or self._profile is ModelProfile.KJRH120L2:
             return ClimateEntityFeature(0)
         if self.hvac_mode is HVACMode.FAN_ONLY:

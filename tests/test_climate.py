@@ -28,6 +28,7 @@ from custom_components.iletcomfort.model_profiles import (
     decode_atw_status,
     decode_kjrh120l_status,
 )
+from custom_components.iletcomfort.const import OPERATION_MODE_READ_ONLY
 
 
 def _climate(sn8: str | None, sensors: ITSSensors, status: ITSStatus | None = None):
@@ -39,6 +40,14 @@ def _climate(sn8: str | None, sensors: ITSSensors, status: ITSStatus | None = No
     coordinator.data = {"status": status, "sensors": sensors}
     coordinator.async_set_device = AsyncMock()
     return ILetComfortClimate(coordinator)
+
+
+def test_read_only_climate_advertises_no_control_features():
+    """Read-only mode keeps telemetry visible while removing HA controls."""
+    entity = _climate(None, ITSSensors(), ITSStatus(mode=1, t5s_def=21))
+    entity.coordinator._operation_mode = OPERATION_MODE_READ_ONLY
+
+    assert entity.supported_features == ClimateEntityFeature(0)
 
 
 def test_current_temperature_standard_reads_twin_temp():

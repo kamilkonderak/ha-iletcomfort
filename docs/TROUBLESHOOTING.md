@@ -64,6 +64,9 @@ MQTT connection and retries an hour later. If the MQTT connection drops, HA mark
 the entities unavailable rather than starting periodic account polling. Select
 **HA is the primary client** to restore polling and control.
 
+For testing without changing the heat pump, select **Read-only (polling without
+control)** instead. This keeps normal cloud polling enabled while rejecting all
+control commands from Home Assistant.
 **Workaround — give Home Assistant its own account.** Use a second cloud account
 for Home Assistant and share the heat pump to it, so each client gets its own
 session:

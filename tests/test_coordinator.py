@@ -493,6 +493,25 @@ async def test_phone_app_mode_rejects_account_control(hass: HomeAssistant):
     cls.return_value.set_device.assert_not_called()
 
 
+async def test_read_only_mode_rejects_control_without_calling_client(
+    hass: HomeAssistant,
+):
+    """Read-only polling mode must never send a SET command."""
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.iletcomfort.const import OPERATION_MODE_READ_ONLY
+
+    entry = _entry_operation_mode(OPERATION_MODE_READ_ONLY)
+    entry.add_to_hass(hass)
+    with patch("custom_components.iletcomfort.coordinator.ILetComfortClient") as cls:
+        coordinator = ILetComfortCoordinator(hass, entry)
+
+    with pytest.raises(HomeAssistantError, match="read-only"):
+        await coordinator.async_set_device(temperature=42)
+
+    cls.return_value.set_device.assert_not_called()
+
+
 def _degraded_coordinator(hass: HomeAssistant) -> tuple[ILetComfortCoordinator, MagicMock]:
     """Build a coordinator wired so both queries fall back to cache."""
     entry = _entry(REGION_US)

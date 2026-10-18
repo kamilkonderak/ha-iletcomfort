@@ -18,6 +18,7 @@ from custom_components.iletcomfort.const import (
     CONF_REGION,
     DOMAIN,
     OPERATION_MODE_HA_PRIMARY,
+    OPERATION_MODE_READ_ONLY,
     OPERATION_MODE_PHONE_APP,
     REGION_EU,
     REGION_US,
@@ -442,6 +443,29 @@ async def test_options_flow_selects_phone_app_mode(hass: HomeAssistant):
     )
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert entry.options == {CONF_OPERATION_MODE: OPERATION_MODE_PHONE_APP}
+
+
+async def test_options_flow_selects_read_only_mode(hass: HomeAssistant):
+    """The normal polling mode can be configured without enabling writes."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"{EMAIL}:APPL1",
+        data={
+            CONF_EMAIL: EMAIL, CONF_PASSWORD: PASSWORD,
+            CONF_APPLIANCE_CODE: "APPL1", CONF_REGION: REGION_US,
+        },
+        version=2,
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={CONF_OPERATION_MODE: OPERATION_MODE_READ_ONLY},
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert entry.options == {CONF_OPERATION_MODE: OPERATION_MODE_READ_ONLY}
 
 
 async def test_legacy_push_option_defaults_to_phone_app_mode(

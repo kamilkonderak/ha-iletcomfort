@@ -54,6 +54,10 @@ an end-to-end device liveness watchdog; the observed idle cadence is about 15
 minutes, with a 45-minute tolerance for missed cycles. Use **HA is the primary
 client** (the default) when Home Assistant must control the heat pump.
 
+For integration testing, select **Read-only (polling without control)** in the
+integration options. Home Assistant continues its normal cloud polling but all
+control commands are rejected, so telemetry can be tested without changing the
+heat pump.
 ## Showing water temperatures on a dashboard
 
 Home Assistant's built-in thermostat card shows the climate entity's current

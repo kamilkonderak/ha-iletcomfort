@@ -27,6 +27,7 @@ DEFAULT_ENABLE_MQTT_PUSH = False
 # account polling and no writes that could evict the official app's session.
 CONF_OPERATION_MODE = "operation_mode"
 OPERATION_MODE_HA_PRIMARY = "ha_primary"
+OPERATION_MODE_READ_ONLY = "read_only"
 OPERATION_MODE_PHONE_APP = "phone_app"
 DEFAULT_OPERATION_MODE = OPERATION_MODE_HA_PRIMARY
 
