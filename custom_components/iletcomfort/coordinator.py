@@ -44,6 +44,7 @@ from .const import (
     MQTT_STATUS_STALE_AFTER,
 )
 from .model_profiles import (
+    ModelProfile,
     apply_profile_to_sensors,
     apply_profile_to_status,
     resolve_profile,
@@ -295,9 +296,19 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # current_temperature and Water Inlet sensor read). STANDARD is a no-op.
         sensors = apply_profile_to_sensors(resolve_profile(sn8), sensors, status)
 
+        extended: dict[str, bytes] = cached.get("extended", {})
+        if resolve_profile(sn8) is ModelProfile.KJRH120L2:
+            try:
+                extended = await self.hass.async_add_executor_job(
+                    self.client.query_kjrh120l2_extended,
+                    self.appliance_code,
+                )
+            except (AuthError, Exception) as err:  # noqa: BLE001
+                _LOGGER.debug("Extended telemetry query failed: %s", err)
+
         self._update_offline_repair()
 
-        return {"status": status, "sensors": sensors}
+        return {"status": status, "sensors": sensors, "extended": extended}
 
     def _update_offline_repair(self) -> None:
         """Surface or clear the 'device appears offline' Repair card.

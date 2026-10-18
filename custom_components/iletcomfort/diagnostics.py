@@ -65,6 +65,17 @@ def _format_hex(raw: bytes) -> str:
     return ",".join(f"{b:02x}" for b in raw)
 
 
+def _serialize_extended(frames: Any) -> dict[str, str]:
+    """Serialize raw extended query bodies for diagnostics."""
+    if not isinstance(frames, dict):
+        return {}
+    return {
+        str(group): _format_hex(body)
+        for group, body in frames.items()
+        if isinstance(body, bytes)
+    }
+
+
 def _serialize_frame(obj: Any) -> Any:
     """Convert a decoded status/sensors dataclass into a JSON-safe dict.
 
@@ -123,6 +134,7 @@ async def async_get_config_entry_diagnostics(
         "appliance": appliance,
         "status": _serialize_frame(data.get("status")),
         "sensors": _serialize_frame(data.get("sensors")),
+        "extended": _serialize_extended(data.get("extended")),
         "sensors_temperature_scan": _sensors_temperature_scan(
             sensors_obj.raw_body
             if (sensors_obj := data.get("sensors")) is not None

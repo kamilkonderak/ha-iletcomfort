@@ -170,6 +170,18 @@ def build_c3_query(subtype: int) -> str:
     return bytes(frame).hex()
 
 
+def build_c3_query_group(group: int) -> str:
+    """Build the two-byte C3 query used by controller telemetry groups."""
+    if not 0 <= group <= 0xFFFF:
+        raise ValueError("C3 query group must fit in two bytes")
+    body = bytes((0x00, (group >> 8) & 0xFF, group & 0xFF))
+    body += bytes.fromhex("ff ff ff ff 00 ff ff")
+    frame = bytearray([0xAA, len(body) + 10, DEVICE_TYPE_C3, 0, 0, 0, 0, 0, 0, 0x03])
+    frame.extend(body)
+    frame.append((-sum(frame[1:])) & 0xFF)
+    return frame.hex()
+
+
 def build_c3_set(
     mode: int,
     temperature: int,
@@ -833,6 +845,30 @@ class ILetComfortClient:
         if profile is ModelProfile.KJRH120L2:
             return decode_kjrh120l2_sensors(body)
         return decode_its_sensors(body)
+
+    def query_kjrh120l2_extended(
+        self, appliance_code: str,
+    ) -> dict[str, bytes]:
+        """Fetch raw KJRH-120L2 runtime and energy telemetry groups.
+
+        The vendor's JSON decoder exposes these groups as 2F10, 2F11 and 2F12.
+        Their byte layouts are not yet independently validated, so retain the
+        body bytes for diagnostics instead of publishing guessed measurements.
+        """
+        frames: dict[str, bytes] = {}
+        for group in (0x2F10, 0x2F11, 0x2F12):
+            response_hex = self.send_hex_command(
+                appliance_code, build_c3_query_group(group),
+            )
+            raw = parse_hex_response(response_hex)
+            _body_type, body = extract_c3_body(raw)
+            expected_prefix = bytes((0x00, group >> 8, group & 0xFF))
+            if len(body) < 3 or body[:3] != expected_prefix:
+                raise ApiError(
+                    f"Extended query 0x{group:04x} returned an invalid frame"
+                )
+            frames[f"{group:04x}"] = bytes(body)
+        return frames
 
     def set_device(
         self,
