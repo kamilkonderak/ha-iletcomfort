@@ -294,6 +294,9 @@ class ITSStatus:
     fan_total_run_hours: int = 0
     # KJRH-120L dual variant's separate DHW target (status body[15], issue #5).
     kjrh120l_dhw_setpoint: float | None = None
+    # KJRH-120L2 base-control weather-curve state and type.
+    kjrh120l2_curve_enabled: bool | None = None
+    kjrh120l2_curve_type: int | None = None
     raw_body: bytes = field(default_factory=bytes, repr=False)
 
 
@@ -834,6 +837,8 @@ class ILetComfortClient:
         boost: bool | None = None,
         mute: int | None = None,
         mute_level: int | None = None,
+        curve_enabled: bool | None = None,
+        curve_type: int | None = None,
         power_on: bool = False,
         last_on_state: tuple[int, int] | None = None,
     ) -> dict[str, Any]:
@@ -853,6 +858,8 @@ class ILetComfortClient:
         profile = resolve_profile(sn8)
         if profile is ModelProfile.KJRH120L2:
             from .model_profiles import (
+                build_kjrh120l2_curve_state,
+                build_kjrh120l2_curve_type,
                 build_kjrh120l2_set_temperature,
                 build_kjrh120l2_zone1_power,
             )
@@ -865,6 +872,12 @@ class ILetComfortClient:
                 effective = None
             elif mode == MODE_OFF:
                 command = build_kjrh120l2_zone1_power(False)
+                effective = None
+            elif curve_enabled is not None:
+                command = build_kjrh120l2_curve_state(curve_enabled)
+                effective = None
+            elif curve_type is not None:
+                command = build_kjrh120l2_curve_type(int(curve_type))
                 effective = None
             else:
                 raise ApiError(
@@ -885,6 +898,11 @@ class ILetComfortClient:
                 mode=mode,
                 temperature=temperature,
                 power_on=power_on,
+            )
+
+        if curve_enabled is not None or curve_type is not None:
+            raise ApiError(
+                "Temperature-curve control is only validated for KJRH-120L2"
             )
 
         # Query current status for echo bytes

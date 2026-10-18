@@ -39,6 +39,8 @@ from custom_components.iletcomfort.model_profiles import (
     apply_profile_to_sensors,
     apply_profile_to_status,
     build_kjrh120l_set_temperature,
+    build_kjrh120l2_curve_state,
+    build_kjrh120l2_curve_type,
     build_kjrh120l2_set_temperature,
     build_kjrh120l2_zone1_power,
     build_query_command,
@@ -194,6 +196,48 @@ def test_decode_kjrh120l2_zone1_power(power_byte, expected_mode):
 
     assert status.mode == expected_mode
     assert status.mode_name == ("Heat" if expected_mode else "Off")
+
+
+@pytest.mark.parametrize(
+    ("builder", "value", "expected"),
+    [
+        (
+            build_kjrh120l2_curve_state,
+            False,
+            "aa18c300000000000002002010ffffffff01ffff00360100c1",
+        ),
+        (
+            build_kjrh120l2_curve_state,
+            True,
+            "aa18c300000000000002002010ffffffff01ffff00360101c0",
+        ),
+        (
+            build_kjrh120l2_curve_type,
+            2,
+            "aa18c300000000000002002010ffffffff01ffff002d0102c8",
+        ),
+        (
+            build_kjrh120l2_curve_type,
+            1,
+            "aa18c300000000000002002010ffffffff01ffff002d0101c9",
+        ),
+    ],
+)
+def test_kjrh120l2_curve_commands_match_captures(builder, value, expected):
+    """Curve state/type commands match the official-app captures."""
+    assert builder(value) == expected
+
+
+def test_decode_kjrh120l2_curve_state_and_type():
+    """Status body[22] and body[78] report curve state and type."""
+    body = bytearray(79)
+    body[22] = 1
+    body[78] = 2
+
+    status = decode_kjrh120l2_status(body)
+
+    assert status.kjrh120l2_curve_enabled is True
+    assert status.kjrh120l2_curve_type == 2
 
 
 # ---------------------------------------------------------------------------
