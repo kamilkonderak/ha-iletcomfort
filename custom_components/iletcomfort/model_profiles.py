@@ -72,9 +72,8 @@ KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_CURVE_ENABLED_INDEX = 22
 KJRH120L2_CURVE_TYPE_INDEX = 78
 KJRH120L2_CURVE_TYPE_LEGACY_INDEX = 77
-KJRH120L2_DHW_TEMP_INDEX = 60
-KJRH120L2_WATER_OUTLET_TEMP_INDEX = 104
-KJRH120L2_OUTDOOR_TEMP_INDEX = 105
+KJRH120L2_DHW_TEMP_INDEX = 67
+KJRH120L2_OUTDOOR_TEMP_INDEX = 98
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
 
@@ -421,14 +420,18 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
 
 
 def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
-    """Decode the confirmed direct-temperature fields in a KJRH-120L2 frame."""
+    """Decode confirmed tenths-degree fields in a KJRH-120L2 base frame."""
     sensors = ITSSensors(raw_body=bytes(body))
-    if len(body) > KJRH120L2_DHW_TEMP_INDEX:
-        sensors.th_temp = body[KJRH120L2_DHW_TEMP_INDEX]
-    if len(body) > KJRH120L2_WATER_OUTLET_TEMP_INDEX:
-        sensors.twout_temp = float(body[KJRH120L2_WATER_OUTLET_TEMP_INDEX])
-    if len(body) > KJRH120L2_OUTDOOR_TEMP_INDEX:
-        sensors.t4_temp = float(body[KJRH120L2_OUTDOOR_TEMP_INDEX])
+    if len(body) > KJRH120L2_DHW_TEMP_INDEX + 1:
+        sensors.th_temp = (
+            (body[KJRH120L2_DHW_TEMP_INDEX] << 8)
+            | body[KJRH120L2_DHW_TEMP_INDEX + 1]
+        ) / 10
+    if len(body) > KJRH120L2_OUTDOOR_TEMP_INDEX + 1:
+        sensors.t4_temp = (
+            (body[KJRH120L2_OUTDOOR_TEMP_INDEX] << 8)
+            | body[KJRH120L2_OUTDOOR_TEMP_INDEX + 1]
+        ) / 10
     return sensors
 
 
@@ -579,7 +582,6 @@ __all__ = [
     "KJRH120L2_CURVE_ENABLED_INDEX",
     "KJRH120L2_CURVE_TYPE_INDEX",
     "KJRH120L2_DHW_TEMP_INDEX",
-    "KJRH120L2_WATER_OUTLET_TEMP_INDEX",
     "KJRH120L2_OUTDOOR_TEMP_INDEX",
     "KJRH120L2_ZONE1_POWER_INDEX",
     "KJRH120L2_DHW_TEMP_MAX",

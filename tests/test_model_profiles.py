@@ -262,17 +262,16 @@ def test_decode_kjrh120l2_curve_type_falls_back_from_invalid_captured_offset():
 
 
 def test_decode_kjrh120l2_sensor_temperatures():
-    """KJRH-120L2 direct-temperature fields use the captured offsets."""
+    """KJRH-120L2 sensor fields use the captured tenths-degree offsets."""
     body = bytearray(106)
-    body[60] = 44
-    body[104] = 26
-    body[105] = 10
+    body[67:69] = bytes.fromhex("01 b8")
+    body[98:100] = bytes.fromhex("00 6e")
 
     sensors = decode_kjrh120l2_sensors(body)
 
-    assert sensors.th_temp == 44
-    assert sensors.twout_temp == 26.0
-    assert sensors.t4_temp == 10.0
+    assert sensors.th_temp == 44.0
+    assert sensors.t4_temp == 11.0
+    assert sensors.twout_temp is None
     assert sensors.t3_temp is None
 
 
