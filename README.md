@@ -69,11 +69,12 @@ successfully returned by the vendor semantic decoder is exposed as a sensor;
 installer (`2080`) and capability (`2100`) fields are marked diagnostic.
 
 Controls are limited to hardware-captured direct commands: Zone-1 Heat/Off,
-the DHW setpoint, and the Zone-1 weather-curve switch and preset selector.
-Parser-decoded fields such as Holiday Mode, ECO, silent mode, DHW power, room
-setpoint, and disinfection remain read-only. The observed parser encode endpoint
-successfully creates query frames but returns HTTP 500 for the attempted control
-shape, so it is not used for runtime control.
+the DHW setpoint, Fast DHW/Boost, forced tank-booster heater (TBH), and the
+Zone-1 weather-curve switch and preset selector. Parser-decoded fields such as
+Holiday Mode, ECO, silent mode, DHW power, room setpoint, and disinfection
+remain read-only. The observed parser encode endpoint successfully creates
+query frames but returns HTTP 500 for the attempted control shape, so it is not
+used for runtime control.
 
 Semantic decoding is best-effort. The local decoder remains authoritative for
 core climate and telemetry entities, so a semantic-service outage does not

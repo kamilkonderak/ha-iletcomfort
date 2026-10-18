@@ -104,7 +104,8 @@ The full per-device serial `sn` is **redacted** and never stored.
   frame evidence.
 - `17100007` (`KJRH-120L2`) has a dedicated, capture-backed profile for the base `0x2010` response,
   `0x20B0` telemetry, `0x2F11`/`0x2F12` energy counters, and selected controller groups. Confirmed
-  local writes cover Zone-1 power, DHW setpoint, and Zone-1 weather-curve state/type. The authenticated
+  local writes cover Zone-1 power, DHW setpoint, forced TBH (field `0x0A`), Fast DHW (field `0x0B`),
+  and Zone-1 weather-curve state/type. The authenticated
   semantic parser is optional **read-only** enrichment. Its encode endpoint is validated only for query
   generation; attempted semantic control encoding returned HTTP 500, so never route controls through it
   without an official-app control capture proving the request shape and resulting device state. Installer,

@@ -71,6 +71,8 @@ KJRH120L2_SENSORS_QUERY = "aa14c3000000000000030020b0ffffffff00ffff5c"
 KJRH120L2_DHW_SETPOINT_INDEX = 20
 KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_CURVE_ENABLED_INDEX = 22
+KJRH120L2_TBH_INDEX = 24
+KJRH120L2_FAST_DHW_INDEX = 25
 KJRH120L2_CURVE_TYPE_INDEX = 78
 KJRH120L2_CURVE_TYPE_LEGACY_INDEX = 77
 KJRH120L2_T2_TEMP_INDEX = 96
@@ -423,6 +425,12 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
         status.kjrh120l2_curve_enabled = bool(
             body[KJRH120L2_CURVE_ENABLED_INDEX]
         )
+    if len(body) > KJRH120L2_TBH_INDEX:
+        status.kjrh120l2_tbh_enabled = bool(body[KJRH120L2_TBH_INDEX])
+    if len(body) > KJRH120L2_FAST_DHW_INDEX:
+        status.kjrh120l2_fast_dhw_enabled = bool(
+            body[KJRH120L2_FAST_DHW_INDEX]
+        )
     if len(body) > KJRH120L2_CURVE_TYPE_INDEX:
         curve_type = body[KJRH120L2_CURVE_TYPE_INDEX]
         status.kjrh120l2_curve_type = curve_type if 1 <= curve_type <= 9 else None
@@ -669,17 +677,27 @@ def build_kjrh120l2_zone1_power(power_on: bool) -> str:
 
 def build_kjrh120l2_curve_state(enabled: bool) -> str:
     """Build the captured KJRH-120L2 Zone-1 curve enable command."""
-    return _build_kjrh120l2_curve_command(0x36, 1 if enabled else 0)
+    return _build_kjrh120l2_field_command(0x36, 1 if enabled else 0)
+
+
+def build_kjrh120l2_tbh(enabled: bool) -> str:
+    """Build the captured KJRH-120L2 forced tank-heater command."""
+    return _build_kjrh120l2_field_command(0x0A, 1 if enabled else 0)
+
+
+def build_kjrh120l2_fast_dhw(enabled: bool) -> str:
+    """Build the captured KJRH-120L2 Fast DHW command."""
+    return _build_kjrh120l2_field_command(0x0B, 1 if enabled else 0)
 
 
 def build_kjrh120l2_curve_type(curve_type: int) -> str:
     """Build the captured KJRH-120L2 Zone-1 curve-type command."""
     if not 1 <= curve_type <= 9:
         raise ValueError("KJRH-120L2 curve type must be between 1 and 9")
-    return _build_kjrh120l2_curve_command(0x2D, curve_type)
+    return _build_kjrh120l2_field_command(0x2D, curve_type)
 
 
-def _build_kjrh120l2_curve_command(field: int, value: int) -> str:
+def _build_kjrh120l2_field_command(field: int, value: int) -> str:
     body = bytes.fromhex(
         "00 20 10 ff ff ff ff 01 ff ff 00"
     ) + bytes([field, 1, value])
@@ -803,6 +821,8 @@ __all__ = [
     "KJRH120L2_DHW_SETPOINT_INDEX",
     "KJRH120L2_CURVE_ENABLED_INDEX",
     "KJRH120L2_CURVE_TYPE_INDEX",
+    "KJRH120L2_FAST_DHW_INDEX",
+    "KJRH120L2_TBH_INDEX",
     "KJRH120L2_CONTROLLER_GROUPS",
     "KJRH120L2_DHW_TEMP_INDEX",
     "KJRH120L2_ZONE1_POWER_INDEX",
@@ -828,6 +848,8 @@ __all__ = [
     "build_kjrh120l2_zone1_power",
     "build_kjrh120l2_curve_state",
     "build_kjrh120l2_curve_type",
+    "build_kjrh120l2_fast_dhw",
+    "build_kjrh120l2_tbh",
     "kjrh120l_has_zone1",
     "resolve_profile",
 ]

@@ -33,7 +33,7 @@ No row infers compatibility from device type `0xC3`. Shared-operation comparison
 - #42 (ATW writes): semantic parsing cannot unblock it because US and community-reported EU tenant lookups return `2200004` for `171H120F`. Retain write refusal until captured vendor commands exist.
 - #47 (unknown Dantex layout): read-only semantic decode could help only after `sn8`, plugin availability, and parser support are established. Until then, template sensor bytes stay untrustworthy and STANDARD must not be replaced speculatively.
 - AQUAPURA: the parser-generated temperature evidence can support #85's offline vector work, but the missing authoritative #84 catalogue prevents architecture adoption.
-- `17100007`: the local KJRH120L2 profile remains authoritative for core reads. Successful parser fields are additional sensors only. Confirmed direct writes remain Zone-1 power, DHW setpoint, and weather-curve state/type.
+- `17100007`: the local KJRH120L2 profile remains authoritative for core reads. Successful parser fields are additional sensors only. Confirmed direct writes are Zone-1 power, DHW setpoint, forced TBH, Fast DHW, and weather-curve state/type.
 
 ## Regeneration
 

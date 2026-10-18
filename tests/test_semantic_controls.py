@@ -6,6 +6,10 @@ from custom_components.iletcomfort.api import ITSSensors, ITSStatus
 from custom_components.iletcomfort.model_profiles import KJRH120L2_SN8
 from custom_components.iletcomfort.select import ILetComfortKjrh120l2CurveTypeSelect
 from custom_components.iletcomfort.sensor import ILetComfortCurveDetailsSensor
+from custom_components.iletcomfort.switch import (
+    ILetComfortBoostSwitch,
+    ILetComfortKjrh120l2TbhSwitch,
+)
 
 
 def _coordinator() -> MagicMock:
@@ -58,6 +62,28 @@ def _coordinator() -> MagicMock:
     }
     coordinator.async_set_device = AsyncMock()
     return coordinator
+
+
+async def test_fast_dhw_switch_uses_captured_boost_write():
+    coordinator = _coordinator()
+    coordinator.data["status"].kjrh120l2_fast_dhw_enabled = True
+    entity = ILetComfortBoostSwitch(coordinator)
+
+    assert entity.is_on is True
+    await entity.async_turn_off()
+
+    coordinator.async_set_device.assert_awaited_once_with(boost=False)
+
+
+async def test_tbh_switch_uses_captured_tank_heater_write():
+    coordinator = _coordinator()
+    coordinator.data["status"].kjrh120l2_tbh_enabled = False
+    entity = ILetComfortKjrh120l2TbhSwitch(coordinator)
+
+    assert entity.is_on is False
+    await entity.async_turn_on()
+
+    coordinator.async_set_device.assert_awaited_once_with(tank_heater=True)
 
 
 async def test_curve_preset_select_uses_named_standard_options():

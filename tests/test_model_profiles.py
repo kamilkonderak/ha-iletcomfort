@@ -43,7 +43,9 @@ from custom_components.iletcomfort.model_profiles import (
     build_kjrh120l_set_temperature,
     build_kjrh120l2_curve_state,
     build_kjrh120l2_curve_type,
+    build_kjrh120l2_fast_dhw,
     build_kjrh120l2_set_temperature,
+    build_kjrh120l2_tbh,
     build_kjrh120l2_zone1_power,
     build_query_command,
     decode_atw_status,
@@ -202,6 +204,48 @@ def test_build_kjrh120l2_dhw_write_matches_capture():
 def test_build_kjrh120l2_zone1_power_matches_captures(power_on, expected):
     """Zone-1 heating power writes match the captured off/on commands."""
     assert build_kjrh120l2_zone1_power(power_on) == expected
+
+
+@pytest.mark.parametrize(
+    ("builder", "enabled", "expected"),
+    [
+        (
+            build_kjrh120l2_tbh,
+            True,
+            "aa18c300000000000002002010ffffffff01ffff000a0101ec",
+        ),
+        (
+            build_kjrh120l2_tbh,
+            False,
+            "aa18c300000000000002002010ffffffff01ffff000a0100ed",
+        ),
+        (
+            build_kjrh120l2_fast_dhw,
+            True,
+            "aa18c300000000000002002010ffffffff01ffff000b0101eb",
+        ),
+        (
+            build_kjrh120l2_fast_dhw,
+            False,
+            "aa18c300000000000002002010ffffffff01ffff000b0100ec",
+        ),
+    ],
+)
+def test_kjrh120l2_tbh_and_fast_dhw_commands_match_captures(
+    builder, enabled, expected,
+):
+    assert builder(enabled) == expected
+
+
+def test_decode_kjrh120l2_tbh_and_fast_dhw_state():
+    body = bytearray(26)
+    body[24] = 1
+    body[25] = 1
+
+    status = decode_kjrh120l2_status(body)
+
+    assert status.kjrh120l2_tbh_enabled is True
+    assert status.kjrh120l2_fast_dhw_enabled is True
 
 
 @pytest.mark.parametrize(

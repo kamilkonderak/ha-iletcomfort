@@ -134,7 +134,7 @@
         "Direct Dollin frames and the local sn8-gated decoder remain authoritative for core entities.",
         "Authenticated parser decoding is optional runtime enrichment; successful fields are exposed as sensors and cached local values survive parser failures.",
         "The parser is read-only runtime enrichment: query encoding is observed, while an attempted control envelope returned HTTP 500.",
-        "Confirmed direct writes are Zone-1 power, DHW setpoint, and weather-curve state/type; all other semantic fields remain read-only."
+        "Confirmed direct writes are Zone-1 power, DHW setpoint, forced TBH, Fast DHW, and weather-curve state/type; all other semantic fields remain read-only."
       ],
       "related_issues": [47, 59]
     }

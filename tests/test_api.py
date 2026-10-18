@@ -377,6 +377,35 @@ def test_set_device_kjrh120l2_zone1_power_matches_captures(kwargs, expected):
     ("kwargs", "expected"),
     [
         (
+            {"tank_heater": True},
+            "aa18c300000000000002002010ffffffff01ffff000a0101ec",
+        ),
+        (
+            {"tank_heater": False},
+            "aa18c300000000000002002010ffffffff01ffff000a0100ed",
+        ),
+        (
+            {"boost": True},
+            "aa18c300000000000002002010ffffffff01ffff000b0101eb",
+        ),
+        (
+            {"boost": False},
+            "aa18c300000000000002002010ffffffff01ffff000b0100ec",
+        ),
+    ],
+)
+def test_set_device_kjrh120l2_tbh_and_fast_dhw_matches_captures(kwargs, expected):
+    client = _make_client()
+    with patch.object(client, "send_hex_command") as mock_send:
+        client.set_device("APPL1", sn8=KJRH120L2_SN8, **kwargs)
+
+    assert mock_send.call_args.args == ("APPL1", expected)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        (
             {"curve_enabled": False},
             "aa18c300000000000002002010ffffffff01ffff00360100c1",
         ),

@@ -325,6 +325,8 @@ class ITSStatus:
     # KJRH-120L2 base-control weather-curve state and type.
     kjrh120l2_curve_enabled: bool | None = None
     kjrh120l2_curve_type: int | None = None
+    kjrh120l2_tbh_enabled: bool | None = None
+    kjrh120l2_fast_dhw_enabled: bool | None = None
     raw_body: bytes = field(default_factory=bytes, repr=False)
 
 
@@ -1041,6 +1043,7 @@ class ILetComfortClient:
         mode: int | None = None,
         temperature: int | None = None,
         boost: bool | None = None,
+        tank_heater: bool | None = None,
         mute: int | None = None,
         mute_level: int | None = None,
         curve_enabled: bool | None = None,
@@ -1066,13 +1069,21 @@ class ILetComfortClient:
             from .model_profiles import (
                 build_kjrh120l2_curve_state,
                 build_kjrh120l2_curve_type,
+                build_kjrh120l2_fast_dhw,
                 build_kjrh120l2_set_temperature,
+                build_kjrh120l2_tbh,
                 build_kjrh120l2_zone1_power,
             )
 
             if temperature is not None:
                 command = build_kjrh120l2_set_temperature(int(temperature))
                 effective = int(temperature)
+            elif tank_heater is not None:
+                command = build_kjrh120l2_tbh(tank_heater)
+                effective = None
+            elif boost is not None:
+                command = build_kjrh120l2_fast_dhw(boost)
+                effective = None
             elif power_on or mode == MODE_HEAT:
                 command = build_kjrh120l2_zone1_power(True)
                 effective = None
@@ -1087,7 +1098,8 @@ class ILetComfortClient:
                 effective = None
             else:
                 raise ApiError(
-                    "KJRH-120L2 supports Zone-1 power and DHW setpoint writes"
+                    "KJRH-120L2 supports Zone-1 power, DHW setpoint, TBH, "
+                    "Fast DHW, and weather-curve writes"
                 )
             response_hex = self.send_hex_command(appliance_code, command)
             result = {
