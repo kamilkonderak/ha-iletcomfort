@@ -34,6 +34,8 @@ CLIENT_SECRET = "35b965531383ce9f37f829a19712bf3a"
 ENCRYPT_KEY = "4dbc9ff6c15944d78eebb581c2b23de3"
 APP_ID = "8010"
 API_BASE = "https://us.dollin.net"
+SEMANTIC_ENCODE_PATH = "/api/mibp-connector-mo-parser/mibp/sys/mg_iot/encode"
+SEMANTIC_DECODE_PATH = "/api/mibp-connector-mo-parser/mibp/sys/mg_iot/decode"
 
 DEVICE_TYPE_C3 = 0xC3
 
@@ -228,6 +230,20 @@ def parse_hex_response(hex_data: str) -> bytearray:
     if "," in hex_data:
         return bytearray(int(x.strip(), 16) for x in hex_data.split(","))
     return bytearray(bytes.fromhex(hex_data))
+
+
+def validate_c3_frame(hex_data: str) -> str:
+    """Validate and normalize a complete C3 frame returned by vendor tooling."""
+    raw = parse_hex_response(hex_data)
+    if len(raw) < 12:
+        raise ApiError("Semantic parser returned a truncated C3 frame")
+    if raw[0] != 0xAA or raw[2] != DEVICE_TYPE_C3:
+        raise ApiError("Semantic parser returned a non-C3 frame")
+    if raw[1] != len(raw) - 1:
+        raise ApiError("Semantic parser returned a C3 frame with invalid length")
+    if sum(raw[1:]) & 0xFF:
+        raise ApiError("Semantic parser returned a C3 frame with invalid checksum")
+    return raw.hex()
 
 
 def extract_c3_body(raw: bytearray) -> tuple[int, bytearray]:
@@ -553,12 +569,19 @@ class ILetComfortClient:
     def __init__(
         self,
         api_base: str = API_BASE,
+        semantic_base: str | None = None,
         access_token: str | None = None,
         timeout: int = 15,
     ) -> None:
         self._api_base = api_base.rstrip("/")
+        region = "eu" if "://eu." in self._api_base else "us"
+        self._region = region
+        self._semantic_base = (
+            semantic_base or f"https://{region}.ibuildinghvac.com"
+        ).rstrip("/")
         self._access_token = access_token
         self._timeout = timeout
+        self._semantic_state: dict[str, dict[str, Any]] = {}
         self._session = requests.Session()
         self._session.headers.update({
             "Content-Type": "application/json",
@@ -576,6 +599,14 @@ class ILetComfortClient:
     @access_token.setter
     def access_token(self, value: str | None) -> None:
         self._access_token = value
+
+    @property
+    def semantic_state(self) -> dict[str, dict[str, Any]]:
+        """Return the latest successfully decoded semantic state by command group."""
+        return {
+            group: dict(values)
+            for group, values in self._semantic_state.items()
+        }
 
     def _v1_request(
         self, path: str, body_dict: dict[str, Any], *,
@@ -649,6 +680,40 @@ class ILetComfortClient:
         if code in (14005, 12001):
             raise AuthError("Access token expired or invalid.")
 
+        return result
+
+    def _semantic_request(
+        self, path: str, body_dict: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Send an authenticated request to the vendor's semantic C3 parser."""
+        if not self._access_token:
+            raise AuthError("No access token available.")
+
+        json_body = json.dumps(body_dict, separators=(",", ":"))
+        signature, random_value = sign_v1(json_body)
+        headers = {
+            "appId": APP_ID,
+            "sign": signature,
+            "random": random_value,
+            "accessToken": self._access_token,
+            "registerRegion": self._region,
+            "supportLanguage": "EN",
+        }
+        response = self._session.post(
+            self._semantic_base + path,
+            data=json_body,
+            headers=headers,
+            timeout=self._timeout,
+        )
+        response.raise_for_status()
+        result = response.json()
+        code = result.get("code")
+        if code in (14005, 12001):
+            raise AuthError("Access token expired or invalid.")
+        if code != 0:
+            raise ApiError(
+                f"Semantic parser failed: code={code}, msg={result.get('msg')}"
+            )
         return result
 
     # -- Token persistence --
@@ -743,6 +808,76 @@ class ILetComfortClient:
             f"msg={result.get('msg')}"
         )
 
+    @staticmethod
+    def _semantic_device_info(sn8: str) -> dict[str, str]:
+        return {
+            "deviceSubType": "1",
+            "modelSN8": sn8,
+            "deviceType": "0xC3",
+        }
+
+    def decode_semantic_frame(
+        self, sn8: str, frame_hex: str,
+    ) -> dict[str, Any]:
+        """Decode one complete C3 response through the vendor semantic parser."""
+        normalized = validate_c3_frame(frame_hex)
+        result = self._semantic_request(
+            SEMANTIC_DECODE_PATH,
+            {
+                "msg": {"data": normalized},
+                "deviceinfo": self._semantic_device_info(sn8),
+            },
+        )
+        data = result.get("data")
+        status = data.get("status") if isinstance(data, dict) else None
+        if not isinstance(status, dict):
+            raise ApiError("Semantic parser returned no status object")
+        return status
+
+    def _record_semantic_frame(self, sn8: str, frame_hex: str) -> None:
+        """Best-effort decode a frame without making core polling depend on it."""
+        try:
+            status = self.decode_semantic_frame(sn8, frame_hex)
+        except Exception as err:  # noqa: BLE001 - optional enrichment only
+            _LOGGER.debug("Semantic frame decode failed: %s", err)
+            return
+        group = status.get("cmd_type") or status.get("query_type")
+        if group is None:
+            _LOGGER.debug("Semantic frame decode returned no command group")
+            return
+        self._semantic_state[str(group).lower()] = status
+
+    def encode_semantic_control(
+        self,
+        sn8: str,
+        control_type: str,
+        fields: dict[str, Any],
+    ) -> str:
+        """Encode a semantic control object into a locally validated C3 frame."""
+        result = self._semantic_request(
+            SEMANTIC_ENCODE_PATH,
+            {
+                "deviceinfo": self._semantic_device_info(sn8),
+                "control": {"control_type": control_type, **fields},
+            },
+        )
+        frame = result.get("data")
+        if not isinstance(frame, str):
+            raise ApiError("Semantic parser returned no encoded C3 frame")
+        return validate_c3_frame(frame)
+
+    def set_semantic_control(
+        self,
+        appliance_code: str,
+        sn8: str,
+        control_type: str,
+        fields: dict[str, Any],
+    ) -> dict[str, str]:
+        """Encode a semantic control and send it through the Dollin transport."""
+        command = self.encode_semantic_control(sn8, control_type, fields)
+        response = self.send_hex_command(appliance_code, command)
+        return {"sent": command, "response": response}
+
     def create_app_cert(self) -> AppCert:
         """Mint an app client certificate for the vendor's MQTT broker.
 
@@ -797,6 +932,8 @@ class ILetComfortClient:
         profile = resolve_profile(sn8)
         command = build_query_command(profile, 0x01)
         response_hex = self.send_hex_command(appliance_code, command)
+        if sn8:
+            self._record_semantic_frame(sn8, response_hex)
         _LOGGER.debug("query_status raw response: %s", response_hex)
         raw = parse_hex_response(response_hex)
         _body_type, body = extract_c3_body(raw)
@@ -833,6 +970,8 @@ class ILetComfortClient:
         profile = resolve_profile(sn8)
         command = build_query_command(profile, 0x02)
         response_hex = self.send_hex_command(appliance_code, command)
+        if sn8:
+            self._record_semantic_frame(sn8, response_hex)
         _LOGGER.debug("query_sensors raw response: %s", response_hex)
         raw = parse_hex_response(response_hex)
         _body_type, body = extract_c3_body(raw)
@@ -860,6 +999,7 @@ class ILetComfortClient:
             response_hex = self.send_hex_command(
                 appliance_code, build_c3_query_group(group),
             )
+            self._record_semantic_frame("17100007", response_hex)
             raw = parse_hex_response(response_hex)
             _body_type, body = extract_c3_body(raw)
             expected_prefix = bytes((0x00, group >> 8, group & 0xFF))
@@ -878,16 +1018,26 @@ class ILetComfortClient:
 
         frames: dict[str, bytes] = {}
         for group in KJRH120L2_CONTROLLER_GROUPS:
-            response_hex = self.send_hex_command(
-                appliance_code, build_c3_query_group(group),
-            )
+            try:
+                response_hex = self.send_hex_command(
+                    appliance_code, build_c3_query_group(group),
+                )
+            except AuthError:
+                raise
+            except Exception as err:  # noqa: BLE001 - optional group
+                _LOGGER.debug(
+                    "Controller query 0x%04x failed: %s", group, err
+                )
+                continue
+            self._record_semantic_frame("17100007", response_hex)
             raw = parse_hex_response(response_hex)
             _body_type, body = extract_c3_body(raw)
             expected_prefix = bytes((0x00, group >> 8, group & 0xFF))
             if len(body) < 3 or body[:3] != expected_prefix:
-                raise ApiError(
-                    f"Controller query 0x{group:04x} returned an invalid frame"
+                _LOGGER.debug(
+                    "Controller query 0x%04x returned an invalid frame", group
                 )
+                continue
             frames[f"{group:04x}"] = bytes(body)
         return frames
 

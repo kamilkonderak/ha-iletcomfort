@@ -21,6 +21,7 @@ from homeassistant.const import (
     UnitOfElectricPotential,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -28,6 +29,16 @@ from .const import DOMAIN
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
 from .error_codes import ERROR_CODES
+from .semantic import (
+    SEMANTIC_DIAGNOSTIC_GROUPS,
+    coerce_semantic_value,
+    iter_semantic_fields,
+    semantic_field_name,
+    semantic_value,
+    zone1_curve_details,
+    zone1_curve_profile,
+)
+from .model_profiles import ModelProfile, resolve_profile
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -522,10 +533,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up sensor entities."""
     coordinator: ILetComfortCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
+    entities: list[SensorEntity] = [
         ILetComfortSensor(coordinator, description)
         for description in SENSOR_DESCRIPTIONS
+    ]
+    entities.extend(
+        ILetComfortSemanticSensor(coordinator, group, field)
+        for group, field in iter_semantic_fields(coordinator.data)
     )
+    if resolve_profile(coordinator.sn8) is ModelProfile.KJRH120L2:
+        entities.append(ILetComfortCurveDetailsSensor(coordinator))
+    async_add_entities(entities)
 
 
 class ILetComfortSensor(CoordinatorEntity[ILetComfortCoordinator], SensorEntity):
@@ -563,3 +581,61 @@ class ILetComfortSensor(CoordinatorEntity[ILetComfortCoordinator], SensorEntity)
             return None
         error_code = self.native_value
         return ERROR_CODES.get(error_code, {}).copy()
+
+
+class ILetComfortSemanticSensor(
+    CoordinatorEntity[ILetComfortCoordinator], SensorEntity,
+):
+    """Expose one model-aware field returned by the vendor semantic decoder."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: ILetComfortCoordinator,
+        group: str,
+        field: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._group = group.lower()
+        self._field = field
+        self._attr_name = semantic_field_name(field)
+        self._attr_unique_id = (
+            f"{coordinator.appliance_code}_semantic_{self._group}_{field}"
+        )
+        self._attr_device_info = build_device_info(coordinator)
+        if self._group in SEMANTIC_DIAGNOSTIC_GROUPS:
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> Any:
+        return coerce_semantic_value(
+            semantic_value(self.coordinator.data, self._field, self._group)
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        return {"command_group": self._group}
+
+
+class ILetComfortCurveDetailsSensor(
+    CoordinatorEntity[ILetComfortCoordinator], SensorEntity,
+):
+    """Summarize Zone-1 curve family, preset, points, and ECO timing."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Zone-1 Weather Curve Details"
+    _attr_icon = "mdi:chart-bell-curve-cumulative"
+
+    def __init__(self, coordinator: ILetComfortCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.appliance_code}_zone1_curve_details"
+        self._attr_device_info = build_device_info(coordinator)
+
+    @property
+    def native_value(self) -> str:
+        return zone1_curve_profile(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return zone1_curve_details(self.coordinator.data)

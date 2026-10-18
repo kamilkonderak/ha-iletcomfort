@@ -49,7 +49,16 @@ async def _diagnostics(hass: HomeAssistant) -> dict:
 
     status = ITSStatus(mode=1, total_kwh=42, raw_body=bytes([0xaa, 0x01, 0xff]))
     sensors = ITSSensors(twin_temp=21.0, raw_body=bytes([0xbb, 0x02, 0x10]))
-    coord.data = {"status": status, "sensors": sensors}
+    coord.data = {
+        "status": status,
+        "sensors": sensors,
+        "controller_frames": {
+            "2100": bytes.fromhex("00 21 00 ff 1c ff ff 00 ff ff 00 00 01"),
+        },
+        "semantic": {
+            "2010": {"zone1_temp_set": "24", "zone1_power_state": "on"},
+        },
+    }
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coord
 
     return await async_get_config_entry_diagnostics(hass, entry)
@@ -76,6 +85,12 @@ async def test_diagnostics_serializes_raw_frames_as_hex(hass: HomeAssistant):
     assert result["status"]["total_kwh"] == 42
     assert result["sensors"]["raw_body"] == "bb,02,10"
     assert result["sensors"]["twin_temp"] == 21.0
+    assert result["controller_frames"] == {
+        "2100": "00,21,00,ff,1c,ff,ff,00,ff,ff,00,00,01",
+    }
+    assert result["semantic"] == {
+        "2010": {"zone1_temp_set": "24", "zone1_power_state": "on"},
+    }
 
 
 async def test_diagnostics_payload_is_json_serializable(hass: HomeAssistant):

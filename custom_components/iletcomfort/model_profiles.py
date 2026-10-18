@@ -92,7 +92,19 @@ KJRH120L2_INSTANT_RENEWABLE_POWER_INDEX = 162
 KJRH120L2_TOTAL_RENEWABLE_POWER_INDEX = 166
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
-KJRH120L2_CONTROLLER_GROUPS = (0x2040, 0x2050, 0x2070, 0x2090)
+KJRH120L2_CONTROLLER_GROUPS = (
+    0x2020,
+    0x2040,
+    0x2050,
+    0x2060,
+    0x2070,
+    0x2080,
+    0x2090,
+    0x20D0,
+    0x20E0,
+    0x20F0,
+    0x2100,
+)
 
 
 class ModelProfile(Enum):
@@ -578,9 +590,9 @@ def decode_kjrh120l2_controller_groups(
 ) -> dict[str, dict[str, bool | float | int]]:
     """Decode the fixed settings layouts from captured controller groups.
 
-    Schedule and installer groups contain repeated values whose byte meanings
-    cannot be established from one capture. They remain raw diagnostics data
-    until a changed-value capture validates their layout.
+    Schedule, installer, and capability groups contain values whose byte
+    meanings cannot be established from one capture. They remain raw
+    diagnostics data until changed-value captures validate their layouts.
     """
     groups: dict[str, dict[str, bool | float | int]] = {}
 

@@ -28,6 +28,7 @@ from custom_components.iletcomfort.model_profiles import (
     KJRH120L2_SN8,
     decode_atw_status,
     decode_kjrh120l_status,
+    decode_kjrh120l2_status,
 )
 from custom_components.iletcomfort.const import OPERATION_MODE_READ_ONLY
 
@@ -40,6 +41,7 @@ def _climate(sn8: str | None, sensors: ITSSensors, status: ITSStatus | None = No
     coordinator.appliance_meta = {"sn8": sn8} if sn8 else None
     coordinator.data = {"status": status, "sensors": sensors}
     coordinator.async_set_device = AsyncMock()
+    coordinator.async_set_semantic_control = AsyncMock()
     return ILetComfortClimate(coordinator)
 
 
@@ -257,48 +259,100 @@ def test_kjrh120l_dual_climate_shows_zone1_target_without_controls():
     assert entity.supported_features == 0
 
 
-def test_kjrh120l2_climate_exposes_captured_heating_power_only():
-    """KJRH-120L2 exposes validated heating power, not an unvalidated target."""
+def test_kjrh120l2_climate_exposes_semantic_zone1_target():
+    """KJRH-120L2 exposes the model-aware Zone-1 setpoint and bounds."""
     status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
     entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+    entity.coordinator.data["semantic"] = {
+        "2010": {
+            "zone1_temp_set": "24",
+            "zone1_heat_min_set_temp": "25",
+            "zone1_heat_max_set_temp": "55",
+        }
+    }
 
     assert entity.hvac_mode is HVACMode.HEAT
-    assert entity.target_temperature is None
+    assert entity.target_temperature == 24
+    assert entity.min_temp == 25
+    assert entity.max_temp == 55
     assert entity.supported_features == (
-        ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
+        ClimateEntityFeature.TARGET_TEMPERATURE
+        | ClimateEntityFeature.TURN_ON
+        | ClimateEntityFeature.TURN_OFF
     )
 
 
 @pytest.mark.parametrize(
     ("method", "kwargs", "expected"),
     [
-        ("async_set_hvac_mode", {"hvac_mode": HVACMode.HEAT}, {"mode": 1}),
-        ("async_set_hvac_mode", {"hvac_mode": HVACMode.OFF}, {"mode": 0}),
-        ("async_turn_on", {}, {"power_on": True}),
-        ("async_turn_off", {}, {"mode": 0}),
+        (
+            "async_set_hvac_mode",
+            {"hvac_mode": HVACMode.HEAT},
+            ("base", {"run_mode_set": "heat", "zone1_power_state": "on"}),
+        ),
+        (
+            "async_set_hvac_mode",
+            {"hvac_mode": HVACMode.OFF},
+            ("base", {"zone1_power_state": "off"}),
+        ),
+        ("async_turn_on", {}, ("base", {"zone1_power_state": "on"})),
+        ("async_turn_off", {}, ("base", {"zone1_power_state": "off"})),
     ],
 )
-async def test_kjrh120l2_climate_sends_captured_heating_power(
+async def test_kjrh120l2_climate_sends_semantic_mode_control(
     method, kwargs, expected,
 ):
-    """Climate power actions route to the validated KJRH-120L2 writes."""
+    """Climate actions route through model-aware semantic controls."""
     status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
     entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
 
     await getattr(entity, method)(**kwargs)
 
-    entity.coordinator.async_set_device.assert_awaited_once_with(**expected)
+    entity.coordinator.async_set_semantic_control.assert_awaited_once_with(*expected)
 
 
-async def test_kjrh120l2_climate_rejects_unvalidated_heating_setpoint():
-    """A DHW target must not be reused as a Zone-1 heating target."""
+async def test_kjrh120l2_climate_sets_semantic_heating_setpoint():
+    """Zone-1 target writes use the vendor semantic field, not the DHW field."""
     status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
     entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
 
-    with pytest.raises(HomeAssistantError, match="setpoint command"):
-        await entity.async_set_temperature(**{ATTR_TEMPERATURE: 22})
+    await entity.async_set_temperature(**{ATTR_TEMPERATURE: 30})
 
-    entity.coordinator.async_set_device.assert_not_awaited()
+    entity.coordinator.async_set_semantic_control.assert_awaited_once_with(
+        "base", {"zone1_temp_set": "30"}
+    )
+
+
+async def test_kjrh120l2_curve_disables_manual_water_temperature():
+    status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
+    entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+    entity.coordinator.data["semantic"] = {
+        "2010": {
+            "zone1_curve_state": "on",
+            "zone1_temp_type": "water_temperature_type",
+            "zone1_temp_set": "30",
+        }
+    }
+
+    assert not (
+        entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    )
+    with pytest.raises(HomeAssistantError, match="weather curve"):
+        await entity.async_set_temperature(**{ATTR_TEMPERATURE: 30})
+    entity.coordinator.async_set_semantic_control.assert_not_awaited()
+
+
+def test_kjrh120l2_curve_keeps_room_temperature_control():
+    status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
+    entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+    entity.coordinator.data["semantic"] = {
+        "2010": {
+            "zone1_curve_state": "on",
+            "zone1_temp_type": "room_temperature_type",
+        }
+    }
+
+    assert entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
 
 
 @pytest.mark.parametrize(
