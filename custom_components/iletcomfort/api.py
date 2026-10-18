@@ -870,6 +870,27 @@ class ILetComfortClient:
             frames[f"{group:04x}"] = bytes(body)
         return frames
 
+    def query_kjrh120l2_controller_groups(
+        self, appliance_code: str,
+    ) -> dict[str, bytes]:
+        """Fetch the captured KJRH-120L2 controller settings groups."""
+        from .model_profiles import KJRH120L2_CONTROLLER_GROUPS
+
+        frames: dict[str, bytes] = {}
+        for group in KJRH120L2_CONTROLLER_GROUPS:
+            response_hex = self.send_hex_command(
+                appliance_code, build_c3_query_group(group),
+            )
+            raw = parse_hex_response(response_hex)
+            _body_type, body = extract_c3_body(raw)
+            expected_prefix = bytes((0x00, group >> 8, group & 0xFF))
+            if len(body) < 3 or body[:3] != expected_prefix:
+                raise ApiError(
+                    f"Controller query 0x{group:04x} returned an invalid frame"
+                )
+            frames[f"{group:04x}"] = bytes(body)
+        return frames
+
     def set_device(
         self,
         appliance_code: str,

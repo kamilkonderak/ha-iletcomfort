@@ -455,6 +455,39 @@ async def test_poll_standard_leaves_sensors_untouched(hass: HomeAssistant):
     assert result["sensors"].twin_temp == 12.0  # unchanged by STANDARD
 
 
+async def test_kjrh120l2_first_poll_fetches_controller_settings(
+    hass: HomeAssistant,
+):
+    """The slow controller settings refresh must still run on the first poll."""
+    entry = _entry(REGION_US)
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.iletcomfort.coordinator.ILetComfortClient"
+    ) as mock_cls:
+        coord = ILetComfortCoordinator(hass, entry)
+
+    coord.appliance_meta = {"sn8": "17100007"}
+    client = mock_cls.return_value
+    client.query_status.return_value = ITSStatus(mode=1)
+    client.query_sensors.return_value = ITSSensors()
+    client.query_kjrh120l2_extended.return_value = {}
+    client.query_kjrh120l2_controller_groups.return_value = {}
+
+    with (
+        patch(
+            "custom_components.iletcomfort.coordinator.asyncio.sleep",
+            new=AsyncMock(),
+        ),
+        patch(
+            "custom_components.iletcomfort.coordinator.time.monotonic",
+            return_value=1.0,
+        ),
+    ):
+        await coord._poll()
+
+    client.query_kjrh120l2_controller_groups.assert_called_once_with("APPL1")
+
+
 async def test_async_set_device_threads_sn8_to_client(hass: HomeAssistant):
     """The SET path must forward the appliance sn8 so the client can branch the
     write encoding per model (KJRH-120L short commands vs the legacy C3 frame)."""

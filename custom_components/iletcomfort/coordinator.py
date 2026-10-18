@@ -47,6 +47,7 @@ from .model_profiles import (
     ModelProfile,
     apply_profile_to_sensors,
     apply_profile_to_status,
+    decode_kjrh120l2_energy,
     resolve_profile,
 )
 from .mqtt import ILetComfortPushClient
@@ -69,6 +70,7 @@ OFFLINE_REPAIR_ID = "device_offline_{entry_id}"
 # failure that *persists* this many polls (~5 min at the 60s interval, the same
 # cadence as the offline Repair card) warrants a single WARNING (issue #44).
 SUSTAINED_FAILURE_THRESHOLD = 5
+CONTROLLER_DATA_REFRESH_INTERVAL = 15 * 60
 
 
 class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -122,6 +124,7 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._repair_issued = False
         self._last_push_status_at: float | None = None
         self._push_status_watchdog: Callable[[], None] | None = None
+        self._last_controller_data_refresh = -CONTROLLER_DATA_REFRESH_INTERVAL
 
     @property
     def last_on_state(self) -> tuple[int, int] | None:
@@ -297,18 +300,47 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         sensors = apply_profile_to_sensors(resolve_profile(sn8), sensors, status)
 
         extended: dict[str, bytes] = cached.get("extended", {})
+        energy = cached.get("energy")
+        controller_frames: dict[str, bytes] = cached.get("controller_frames", {})
+        controller = cached.get("controller", {})
         if resolve_profile(sn8) is ModelProfile.KJRH120L2:
             try:
                 extended = await self.hass.async_add_executor_job(
                     self.client.query_kjrh120l2_extended,
                     self.appliance_code,
                 )
+                energy = decode_kjrh120l2_energy(extended)
             except (AuthError, Exception) as err:  # noqa: BLE001
                 _LOGGER.debug("Extended telemetry query failed: %s", err)
 
+            if (
+                time.monotonic() - self._last_controller_data_refresh
+                >= CONTROLLER_DATA_REFRESH_INTERVAL
+            ):
+                try:
+                    controller_frames = await self.hass.async_add_executor_job(
+                        self.client.query_kjrh120l2_controller_groups,
+                        self.appliance_code,
+                    )
+                    from .model_profiles import decode_kjrh120l2_controller_groups
+
+                    controller = decode_kjrh120l2_controller_groups(
+                        controller_frames,
+                    )
+                    self._last_controller_data_refresh = time.monotonic()
+                except (AuthError, Exception) as err:  # noqa: BLE001
+                    _LOGGER.debug("Controller settings query failed: %s", err)
+
         self._update_offline_repair()
 
-        return {"status": status, "sensors": sensors, "extended": extended}
+        return {
+            "status": status,
+            "sensors": sensors,
+            "extended": extended,
+            "energy": energy,
+            "controller_frames": controller_frames,
+            "controller": controller,
+        }
 
     def _update_offline_repair(self) -> None:
         """Surface or clear the 'device appears offline' Repair card.

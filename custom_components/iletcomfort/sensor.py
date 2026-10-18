@@ -54,6 +54,34 @@ def _st(attr: str) -> Callable[[dict[str, Any]], Any]:
     return _get
 
 
+def _e(attr: str) -> Callable[[dict[str, Any]], Any]:
+    """Helper: get attribute from model-specific energy telemetry."""
+    def _get(data: dict[str, Any]) -> Any:
+        energy = data.get("energy")
+        return getattr(energy, attr, None) if energy else None
+    return _get
+
+
+def _controller_state(group: str) -> Callable[[dict[str, Any]], Any]:
+    """Return a controller group's on/off state when it has been refreshed."""
+    def _get(data: dict[str, Any]) -> Any:
+        value = (data.get("controller") or {}).get(group)
+        if value is None:
+            return None
+        return "on" if value["state"] else "off"
+    return _get
+
+
+def _controller_attributes(group: str) -> Callable[[dict[str, Any]], dict[str, Any] | None]:
+    """Return the remaining decoded fields for a controller settings group."""
+    def _get(data: dict[str, Any]) -> dict[str, Any] | None:
+        value = (data.get("controller") or {}).get(group)
+        if value is None:
+            return None
+        return {key: item for key, item in value.items() if key != "state"}
+    return _get
+
+
 def _extended(group: str) -> Callable[[dict[str, Any]], Any]:
     """Return a cached extended response as hex, when available."""
     def _get(data: dict[str, Any]) -> Any:
@@ -313,6 +341,152 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         name="Total Renewable Power",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_s("total_renewable_power"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_capacity",
+        name="Heating Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_e("heat_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_renewable_energy",
+        name="Heating Renewable Energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_e("heat_renewable_energy"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_electric_consumption",
+        name="Heating Electricity Consumption",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_e("heat_electric_consumption"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_cop",
+        name="Heating COP",
+        icon="mdi:chart-line",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("heat_cop"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_day_capacity",
+        name="Heating Day Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("heat_day_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_week_capacity",
+        name="Heating Week Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("heat_week_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_month_capacity",
+        name="Heating Month Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("heat_month_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="heating_year_capacity",
+        name="Heating Year Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("heat_year_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="total_electric_consumption",
+        name="Total Electricity Consumption",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_e("total_electric_consumption"),
+    ),
+    ILetComfortSensorDescription(
+        key="total_heat_pump_capacity",
+        name="Total Heat Pump Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_e("total_heat_pump_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="total_renewable_energy",
+        name="Total Renewable Energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_e("total_renewable_energy"),
+    ),
+    ILetComfortSensorDescription(
+        key="dhw_year_capacity",
+        name="DHW Year Capacity",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("dhw_year_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="dhw_year_renewable_energy",
+        name="DHW Year Renewable Energy",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("dhw_year_renewable_energy"),
+    ),
+    ILetComfortSensorDescription(
+        key="dhw_year_electric_consumption",
+        name="DHW Year Electricity Consumption",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("dhw_year_electric_consumption"),
+    ),
+    ILetComfortSensorDescription(
+        key="dhw_year_cop",
+        name="DHW Year COP",
+        icon="mdi:chart-line",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_e("dhw_year_cop"),
+    ),
+    ILetComfortSensorDescription(
+        key="holiday_away_settings",
+        name="Holiday Away Settings",
+        icon="mdi:home-export-outline",
+        value_fn=_controller_state("holiday_away"),
+        attributes_fn=_controller_attributes("holiday_away"),
+    ),
+    ILetComfortSensorDescription(
+        key="silent_settings",
+        name="Silent Settings",
+        icon="mdi:volume-off",
+        value_fn=_controller_state("silent"),
+        attributes_fn=_controller_attributes("silent"),
+    ),
+    ILetComfortSensorDescription(
+        key="eco_settings",
+        name="Eco Settings",
+        icon="mdi:leaf",
+        value_fn=_controller_state("eco"),
+        attributes_fn=_controller_attributes("eco"),
+    ),
+    ILetComfortSensorDescription(
+        key="disinfection_settings",
+        name="Disinfection Settings",
+        icon="mdi:water-boiler-alert",
+        value_fn=_controller_state("disinfection"),
+        attributes_fn=_controller_attributes("disinfection"),
     ),
     # The vendor exposes these groups, but their internal fields are not
     # documented or present in a recoverable capture. Keep the validated raw

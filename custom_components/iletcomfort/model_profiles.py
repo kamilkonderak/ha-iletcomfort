@@ -73,15 +73,16 @@ KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_CURVE_ENABLED_INDEX = 22
 KJRH120L2_CURVE_TYPE_INDEX = 78
 KJRH120L2_CURVE_TYPE_LEGACY_INDEX = 77
-KJRH120L2_T2_TEMP_INDEX = 15
+KJRH120L2_T2_TEMP_INDEX = 96
 KJRH120L2_T3_TEMP_INDEX = 16
 KJRH120L2_T4_TEMP_INDEX = 18
 KJRH120L2_TP_TEMP_INDEX = 20
 KJRH120L2_TWIN_TEMP_INDEX = 22
 KJRH120L2_TWOUT_TEMP_INDEX = 24
-KJRH120L2_T2B_TEMP_INDEX = 130
-KJRH120L2_DHW_TEMP_INDEX = 132
-KJRH120L2_T1_TEMP_INDEX = 124
+KJRH120L2_T1_TEMP_INDEX = 92
+KJRH120L2_T2B_TEMP_INDEX = 98
+KJRH120L2_DHW_TEMP_INDEX = 100
+KJRH120L2_TF_TEMP_INDEX = 119
 KJRH120L2_WATER_FLOW_INDEX = 126
 KJRH120L2_CURRENT_CAPACITY_INDEX = 129
 KJRH120L2_PWM_PUMP_OUTPUT_INDEX = 139
@@ -91,6 +92,7 @@ KJRH120L2_INSTANT_RENEWABLE_POWER_INDEX = 162
 KJRH120L2_TOTAL_RENEWABLE_POWER_INDEX = 166
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
+KJRH120L2_CONTROLLER_GROUPS = (0x2040, 0x2050, 0x2070, 0x2090)
 
 
 class ModelProfile(Enum):
@@ -445,6 +447,7 @@ def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
         ("twin_temp", KJRH120L2_TWIN_TEMP_INDEX),
         ("twout_temp", KJRH120L2_TWOUT_TEMP_INDEX),
         ("t1_temp", KJRH120L2_T1_TEMP_INDEX),
+        ("tf_temp", KJRH120L2_TF_TEMP_INDEX),
     ):
         if len(body) > index + 1:
             setattr(sensors, attr, _decode_kjrh120l2_temperature(
@@ -483,6 +486,162 @@ def _decode_kjrh120l2_temperature(high: int, low: int) -> float:
     if little_endian <= 100:
         return float(little_endian)
     return big_endian / 10
+
+
+@dataclasses.dataclass
+class Kjrh120l2Energy:
+    """Confirmed energy telemetry from the KJRH-120L2 controller groups."""
+
+    heat_capacity: float | None = None
+    heat_renewable_energy: float | None = None
+    heat_electric_consumption: float | None = None
+    heat_cop: float | None = None
+    heat_day_capacity: float | None = None
+    heat_week_capacity: float | None = None
+    heat_month_capacity: float | None = None
+    heat_year_capacity: float | None = None
+    total_heat_pump_capacity: float | None = None
+    total_heat_capacity: float | None = None
+    total_renewable_energy: float | None = None
+    total_electric_consumption: float | None = None
+    total_heat_electric_consumption: float | None = None
+    total_cop: float | None = None
+    dhw_year_capacity: float | None = None
+    dhw_year_renewable_energy: float | None = None
+    dhw_year_electric_consumption: float | None = None
+    dhw_year_cop: float | None = None
+
+
+def _set_kjrh120l2_energy_values(
+    energy: Kjrh120l2Energy,
+    body: bytes,
+    offsets: dict[str, int],
+) -> None:
+    """Populate hundredths-scaled 32-bit counters from one telemetry group."""
+    for attr, offset in offsets.items():
+        if len(body) >= offset + 4:
+            setattr(
+                energy,
+                attr,
+                int.from_bytes(body[offset:offset + 4], "big") / 100,
+            )
+
+
+def decode_kjrh120l2_energy(frames: dict[str, bytes]) -> Kjrh120l2Energy:
+    """Decode captured KJRH-120L2 energy counters from 2F11 and 2F12 groups.
+
+    The vendor parser labels these big-endian 32-bit fields as hundredths. The
+    group prefixes are retained in ``frames`` for diagnostics; absent or short
+    groups leave the corresponding entity unavailable.
+    """
+    energy = Kjrh120l2Energy()
+    heat = frames.get("2f11", b"")
+    if heat[:3] == b"\x00\x2f\x11":
+        _set_kjrh120l2_energy_values(
+            energy,
+            heat,
+            {
+                "heat_capacity": 30,
+                "heat_renewable_energy": 34,
+                "heat_electric_consumption": 38,
+                "heat_cop": 42,
+                "heat_day_capacity": 78,
+                "heat_week_capacity": 94,
+                "heat_month_capacity": 110,
+                "heat_year_capacity": 126,
+            },
+        )
+
+    dhw = frames.get("2f12", b"")
+    if dhw[:3] == b"\x00\x2f\x12":
+        _set_kjrh120l2_energy_values(
+            energy,
+            dhw,
+            {
+                "total_heat_pump_capacity": 25,
+                "total_heat_capacity": 29,
+                "total_renewable_energy": 33,
+                "total_electric_consumption": 37,
+                "total_heat_electric_consumption": 41,
+                "total_cop": 45,
+                "dhw_year_capacity": 65,
+                "dhw_year_renewable_energy": 69,
+                "dhw_year_electric_consumption": 73,
+                "dhw_year_cop": 77,
+            },
+        )
+    return energy
+
+
+def decode_kjrh120l2_controller_groups(
+    frames: dict[str, bytes],
+) -> dict[str, dict[str, bool | float | int]]:
+    """Decode the fixed settings layouts from captured controller groups.
+
+    Schedule and installer groups contain repeated values whose byte meanings
+    cannot be established from one capture. They remain raw diagnostics data
+    until a changed-value capture validates their layout.
+    """
+    groups: dict[str, dict[str, bool | float | int]] = {}
+
+    holiday_away = frames.get("2040", b"")
+    if len(holiday_away) >= 24 and holiday_away[:3] == b"\x00\x20\x40":
+        groups["holiday_away"] = {
+            "state": bool(holiday_away[10]),
+            "heat_enabled": bool(holiday_away[11]),
+            "dhw_enabled": bool(holiday_away[12]),
+            "disinfection_enabled": bool(holiday_away[13]),
+            "start_year": holiday_away[14],
+            "start_month": holiday_away[15],
+            "start_day": holiday_away[16],
+            "end_year": holiday_away[17],
+            "end_month": holiday_away[18],
+            "end_day": holiday_away[19],
+            "heat_temperature": int.from_bytes(holiday_away[20:22], "big") / 10,
+            "dhw_temperature": int.from_bytes(holiday_away[22:24], "big") / 10,
+        }
+
+    silent = frames.get("2050", b"")
+    if len(silent) >= 22 and silent[:3] == b"\x00\x20\x50":
+        groups["silent"] = {
+            "state": bool(silent[10]),
+            "level": silent[11] + 1,
+            "timer_1_enabled": bool(silent[12]),
+            "timer_1_start_hour": silent[13],
+            "timer_1_start_minute": silent[14],
+            "timer_1_end_hour": silent[15],
+            "timer_1_end_minute": silent[16],
+            "timer_2_enabled": bool(silent[17]),
+            "timer_2_start_hour": silent[18],
+            "timer_2_start_minute": silent[19],
+            "timer_2_end_hour": silent[20],
+            "timer_2_end_minute": silent[21],
+        }
+
+    eco = frames.get("2070", b"")
+    if len(eco) >= 17 and eco[:3] == b"\x00\x20\x70":
+        groups["eco"] = {
+            "state": bool(eco[10]),
+            "timer_enabled": bool(eco[11]),
+            "start_hour": eco[12],
+            "start_minute": eco[13],
+            "end_hour": eco[14],
+            "end_minute": eco[15],
+            "curve_type": eco[16],
+        }
+
+    disinfection = frames.get("2090", b"")
+    if len(disinfection) >= 17 and disinfection[:3] == b"\x00\x20\x90":
+        groups["disinfection"] = {
+            "state": bool(disinfection[10]),
+            "running": bool(disinfection[11]),
+            "weekday": disinfection[12],
+            "start_hour": disinfection[13],
+            "start_minute": disinfection[14],
+            "valid": bool(disinfection[15]),
+            "control": bool(disinfection[16]),
+        }
+    return groups
 
 
 def build_kjrh120l2_zone1_power(power_on: bool) -> str:
@@ -632,6 +791,7 @@ __all__ = [
     "KJRH120L2_DHW_SETPOINT_INDEX",
     "KJRH120L2_CURVE_ENABLED_INDEX",
     "KJRH120L2_CURVE_TYPE_INDEX",
+    "KJRH120L2_CONTROLLER_GROUPS",
     "KJRH120L2_DHW_TEMP_INDEX",
     "KJRH120L2_ZONE1_POWER_INDEX",
     "KJRH120L2_DHW_TEMP_MAX",
@@ -648,6 +808,8 @@ __all__ = [
     "build_query_command",
     "decode_atw_status",
     "decode_kjrh120l_status",
+    "decode_kjrh120l2_controller_groups",
+    "decode_kjrh120l2_energy",
     "decode_kjrh120l2_status",
     "decode_kjrh120l2_sensors",
     "build_kjrh120l2_set_temperature",

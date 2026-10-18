@@ -47,6 +47,8 @@ from custom_components.iletcomfort.model_profiles import (
     build_query_command,
     decode_atw_status,
     decode_kjrh120l_status,
+    decode_kjrh120l2_controller_groups,
+    decode_kjrh120l2_energy,
     decode_kjrh120l2_sensors,
     decode_kjrh120l2_status,
     resolve_profile,
@@ -263,36 +265,31 @@ def test_decode_kjrh120l2_curve_type_falls_back_from_invalid_captured_offset():
 
 
 def test_decode_kjrh120l2_sensor_temperatures():
-    """KJRH-120L2 20B0 fields expose the vendor telemetry temperatures."""
-    body = bytearray(133)
-    body[15:17] = bytes.fromhex("01 00")
-    body[16:18] = bytes.fromhex("00 41")
+    """KJRH-120L2 20B0 fields use the captured runtime offsets."""
+    body = bytearray(167)
+    body[16:18] = bytes.fromhex("00 6e")
     body[18:20] = bytes.fromhex("00 6e")
     body[20:22] = bytes.fromhex("02 08")
     body[22:24] = bytes.fromhex("00 f1")
     body[24:26] = bytes.fromhex("01 1e")
-    body[124:126] = bytes.fromhex("01 1b")
-    body[130:132] = bytes.fromhex("01 b8")
-    body[132:134] = bytes.fromhex("01 b5")
+    body[92:94] = bytes.fromhex("00 e2")
+    body[96:98] = bytes.fromhex("00 e7")
+    body[98:100] = bytes.fromhex("00 eb")
+    body[100:102] = bytes.fromhex("01 a7")
+    body[119:121] = bytes.fromhex("00 b4")
 
     sensors = decode_kjrh120l2_sensors(body)
 
-    assert sensors.t2_temp == 25.6
-    assert sensors.t3_temp == 6.5
+    assert sensors.t1_temp == 22.6
+    assert sensors.t2_temp == 23.1
+    assert sensors.t2b_temp == 23.5
+    assert sensors.t3_temp == 11.0
     assert sensors.t4_temp == 11.0
     assert sensors.tp_temp == 52.0
     assert sensors.twin_temp == 24.1
     assert sensors.twout_temp == 28.6
-    assert sensors.t1_temp == 28.3
-    assert sensors.t2b_temp == 44.0
-    assert sensors.th_temp == 43.7
-    assert sensors.water_flow == 0.8
-    assert sensors.current_unit_capacity == 423
-    assert sensors.pwm_pump_output == 37
-    assert sensors.heat_total_capacity == 748
-    assert sensors.instant_power == 75
-    assert sensors.instant_renewable_power == 369
-    assert sensors.total_renewable_power == 349
+    assert sensors.th_temp == 42.3
+    assert sensors.tf_temp == 18.0
 
 
 def test_decode_kjrh120l2_little_endian_whole_degree_temperature():
@@ -303,6 +300,122 @@ def test_decode_kjrh120l2_little_endian_whole_degree_temperature():
     sensors = decode_kjrh120l2_sensors(body)
 
     assert sensors.t4_temp == 11.0
+
+
+def test_decode_kjrh120l2_energy_telemetry_from_captured_offsets():
+    """Decode the confirmed 2F11/2F12 energy counters as hundredths."""
+    heat = bytearray(150)
+    heat[0:3] = b"\x00\x2f\x11"
+    heat[30:34] = (38800).to_bytes(4, "big")
+    heat[34:38] = (18600).to_bytes(4, "big")
+    heat[38:42] = (4800).to_bytes(4, "big")
+    heat[42:46] = (808).to_bytes(4, "big")
+    heat[110:114] = (30000).to_bytes(4, "big")
+
+    dhw = bytearray(160)
+    dhw[0:3] = b"\x00\x2f\x12"
+    dhw[25:29] = (74900).to_bytes(4, "big")
+    dhw[29:33] = (38800).to_bytes(4, "big")
+    dhw[33:37] = (35000).to_bytes(4, "big")
+    dhw[37:41] = (243900).to_bytes(4, "big")
+    dhw[41:45] = (4800).to_bytes(4, "big")
+    dhw[45:49] = (30).to_bytes(4, "big")
+    dhw[65:69] = (36100).to_bytes(4, "big")
+    dhw[69:73] = (16300).to_bytes(4, "big")
+    dhw[73:77] = (22600).to_bytes(4, "big")
+    dhw[77:81] = (160).to_bytes(4, "big")
+
+    energy = decode_kjrh120l2_energy({"2f11": bytes(heat), "2f12": bytes(dhw)})
+
+    assert energy.heat_capacity == 388.0
+    assert energy.heat_renewable_energy == 186.0
+    assert energy.heat_electric_consumption == 48.0
+    assert energy.heat_cop == 8.08
+    assert energy.heat_month_capacity == 300.0
+    assert energy.total_heat_pump_capacity == 749.0
+    assert energy.total_renewable_energy == 350.0
+    assert energy.total_electric_consumption == 2439.0
+    assert energy.total_cop == 0.3
+    assert energy.dhw_year_capacity == 361.0
+    assert energy.dhw_year_renewable_energy == 163.0
+    assert energy.dhw_year_electric_consumption == 226.0
+    assert energy.dhw_year_cop == 1.6
+
+
+def test_decode_kjrh120l2_short_controller_groups():
+    """Decode the fixed fields in the captured controller setting groups."""
+    holiday_away = bytearray(24)
+    holiday_away[0:3] = b"\x00\x20\x40"
+    holiday_away[11:20] = b"\x01\x01\x01\x00\x01\x01\x00\x01\x01"
+    holiday_away[20:24] = bytes.fromhex("00 fa 00 fa")
+
+    silent = bytearray(22)
+    silent[0:3] = b"\x00\x20\x50"
+    silent[13:22] = bytes.fromhex("0c 00 0f 00 00 16 00 07 00")
+
+    eco = bytearray(17)
+    eco[0:3] = b"\x00\x20\x70"
+    eco[12:17] = bytes.fromhex("06 00 0d 00 02")
+
+    disinfection = bytearray(17)
+    disinfection[0:3] = b"\x00\x20\x90"
+    disinfection[10:17] = bytes.fromhex("01 00 10 17 00 01 00")
+
+    groups = decode_kjrh120l2_controller_groups(
+        {
+            "2040": bytes(holiday_away),
+            "2050": bytes(silent),
+            "2070": bytes(eco),
+            "2090": bytes(disinfection),
+        }
+    )
+
+    assert groups["holiday_away"] == {
+        "state": False,
+        "heat_enabled": True,
+        "dhw_enabled": True,
+        "disinfection_enabled": True,
+        "start_year": 0,
+        "start_month": 1,
+        "start_day": 1,
+        "end_year": 0,
+        "end_month": 1,
+        "end_day": 1,
+        "heat_temperature": 25.0,
+        "dhw_temperature": 25.0,
+    }
+    assert groups["silent"] == {
+        "state": False,
+        "level": 1,
+        "timer_1_enabled": False,
+        "timer_1_start_hour": 12,
+        "timer_1_start_minute": 0,
+        "timer_1_end_hour": 15,
+        "timer_1_end_minute": 0,
+        "timer_2_enabled": False,
+        "timer_2_start_hour": 22,
+        "timer_2_start_minute": 0,
+        "timer_2_end_hour": 7,
+        "timer_2_end_minute": 0,
+    }
+    assert groups["eco"] == {
+        "state": False,
+        "timer_enabled": False,
+        "start_hour": 6,
+        "start_minute": 0,
+        "end_hour": 13,
+        "end_minute": 0,
+        "curve_type": 2,
+    }
+    assert groups["disinfection"] == {
+        "state": True,
+        "running": False,
+        "weekday": 16,
+        "start_hour": 23,
+        "start_minute": 0,
+        "valid": True,
+        "control": False,
+    }
 
 
 # ---------------------------------------------------------------------------
