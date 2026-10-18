@@ -539,7 +539,7 @@ def apply_profile_to_sensors(
       shows them unavailable rather than the misleading constant -35 the STANDARD
       decode would produce (issues #21 / #5).
     """
-    if profile in (ModelProfile.KJRH120L, ModelProfile.KJRH120L2):
+    if profile is ModelProfile.KJRH120L:
         return dataclasses.replace(sensors, **_KJRH120L_SUPPRESSED_TEMPS)
     if profile in (ModelProfile.ATW, ModelProfile.AQUAPURA):
         if profile is ModelProfile.ATW and atw_sensors_are_placeholder(

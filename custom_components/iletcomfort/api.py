@@ -823,8 +823,6 @@ class ILetComfortClient:
                 f"({len(body)} body bytes); device may be offline or "
                 f"unsupported. Raw: {response_hex}"
             )
-        if profile is ModelProfile.KJRH120L2:
-            return ITSSensors(raw_body=bytes(body))
         return decode_its_sensors(body)
 
     def set_device(

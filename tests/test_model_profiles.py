@@ -260,6 +260,19 @@ def test_decode_kjrh120l2_curve_type_falls_back_from_invalid_captured_offset():
     assert status.kjrh120l2_curve_type == 2
 
 
+def test_kjrh120l2_sensor_values_are_not_suppressed():
+    """KJRH-120L2 keeps generic sensor values for the HA entities."""
+    body = bytearray(32)
+    body[21:28] = bytes([55, 56, 57, 58, 59, 60, 61])
+    sensors = decode_its_sensors(body)
+
+    result = apply_profile_to_sensors(ModelProfile.KJRH120L2, sensors, None)
+
+    assert result.t3_temp == 20.0
+    assert result.t4_temp == 21.0
+    assert result.twin_temp == 24.0
+
+
 # ---------------------------------------------------------------------------
 # Query command encoding (KJRH-120L short form, issues #21 / #5)
 # ---------------------------------------------------------------------------
