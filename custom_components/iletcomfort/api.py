@@ -852,19 +852,32 @@ class ILetComfortClient:
 
         profile = resolve_profile(sn8)
         if profile is ModelProfile.KJRH120L2:
-            from .model_profiles import build_kjrh120l2_set_temperature
+            from .model_profiles import (
+                build_kjrh120l2_set_temperature,
+                build_kjrh120l2_zone1_power,
+            )
 
-            if temperature is None:
+            if temperature is not None:
+                command = build_kjrh120l2_set_temperature(int(temperature))
+                effective = int(temperature)
+            elif power_on or mode == MODE_HEAT:
+                command = build_kjrh120l2_zone1_power(True)
+                effective = None
+            elif mode == MODE_OFF:
+                command = build_kjrh120l2_zone1_power(False)
+                effective = None
+            else:
                 raise ApiError(
-                    "KJRH-120L2 currently supports DHW setpoint writes only"
+                    "KJRH-120L2 supports Zone-1 power and DHW setpoint writes"
                 )
-            command = build_kjrh120l2_set_temperature(int(temperature))
             response_hex = self.send_hex_command(appliance_code, command)
-            return {
+            result = {
                 "sent": command,
                 "response": response_hex,
-                "effective_temp": int(temperature),
             }
+            if effective is not None:
+                result["effective_temp"] = effective
+            return result
 
         if profile is ModelProfile.KJRH120L:
             return self._set_device_kjrh120l(

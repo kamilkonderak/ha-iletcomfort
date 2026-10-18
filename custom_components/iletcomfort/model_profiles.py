@@ -39,9 +39,10 @@ AQUAPURA (sn8 ``171000AU``, AQS Energie AQUAPURA split HPWH, issue #12)
 Known, unconfirmed model codes
 ------------------------------
 KJRH-120L2 (sn8 ``17100007``)
-    Uses the captured vendor ``base`` query (control group ``0x2010``). The
-    response layout and write commands are not decoded yet, so the profile
-    preserves raw frames and suppresses unvalidated values.
+    Uses the captured vendor ``base`` query (control group ``0x2010``). Zone-1
+    heating power is decoded from status byte 10 and its captured on/off
+    commands are supported. The Zone-1 setpoint and other heating fields remain
+    unvalidated; the DHW target is decoded separately from bytes 20-21.
 
 For both ATW and AQUAPURA the tank temperature is routed to ``th_temp`` and the
 "Water Inlet Temperature" sensor (``twin_temp``) is left honest (no real inlet
@@ -65,6 +66,7 @@ KJRH120L_SN8 = "17100003"
 KJRH120L2_SN8 = "17100007"
 KJRH120L2_QUERY = "aa14c300000000000003002010ffffffff00fffffc"
 KJRH120L2_DHW_SETPOINT_INDEX = 20
+KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
 
@@ -372,12 +374,15 @@ def decode_kjrh120l_status(body: bytearray | bytes) -> ITSStatus:
 
 
 def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
-    """Decode confirmed KJRH-120L2 fields and preserve the raw frame."""
+    """Decode confirmed KJRH-120L2 power and DHW fields."""
     status = ITSStatus()
     status.raw_body = bytes(body)
     status.error_code = 0
     status.comp_running = None
-    status.mode_name = "Unknown"
+    status.mode_name = "Off"
+    if len(body) > KJRH120L2_ZONE1_POWER_INDEX:
+        status.mode = MODE_HEAT if body[KJRH120L2_ZONE1_POWER_INDEX] else MODE_OFF
+        status.mode_name = "Heat" if status.mode else "Off"
     if len(body) > KJRH120L2_DHW_SETPOINT_INDEX + 1:
         dhw_setpoint = (
             (body[KJRH120L2_DHW_SETPOINT_INDEX] << 8)
@@ -387,6 +392,17 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
         status.set_temperature = round(dhw_setpoint)
         status.kjrh120l_dhw_setpoint = dhw_setpoint
     return status
+
+
+def build_kjrh120l2_zone1_power(power_on: bool) -> str:
+    """Build the captured KJRH-120L2 Zone-1 heating power command."""
+    body = bytes.fromhex(
+        "00 20 10 ff ff ff ff 01 ff ff 00 00 01"
+    ) + bytes([1 if power_on else 0])
+    frame = bytearray([0xAA, len(body) + 10, 0xC3, 0, 0, 0, 0, 0, 0, 0x02])
+    frame.extend(body)
+    frame.append((-sum(frame[1:])) & 0xFF)
+    return frame.hex()
 
 
 def build_kjrh120l2_set_temperature(temp: int) -> str:
@@ -500,6 +516,7 @@ __all__ = [
     "KJRH120L_SN8",
     "KJRH120L2_QUERY",
     "KJRH120L2_DHW_SETPOINT_INDEX",
+    "KJRH120L2_ZONE1_POWER_INDEX",
     "KJRH120L2_DHW_TEMP_MAX",
     "KJRH120L2_DHW_TEMP_MIN",
     "KJRH120L2_SN8",
@@ -515,6 +532,7 @@ __all__ = [
     "decode_kjrh120l_status",
     "decode_kjrh120l2_status",
     "build_kjrh120l2_set_temperature",
+    "build_kjrh120l2_zone1_power",
     "kjrh120l_has_zone1",
     "resolve_profile",
 ]

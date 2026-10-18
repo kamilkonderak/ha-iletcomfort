@@ -117,8 +117,10 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     def supported_features(self) -> ClimateEntityFeature:
         if self.coordinator._operation_mode == OPERATION_MODE_READ_ONLY:
             return ClimateEntityFeature(0)
-        if self._is_kjrh120l_dual or self._profile is ModelProfile.KJRH120L2:
+        if self._is_kjrh120l_dual:
             return ClimateEntityFeature(0)
+        if self._profile is ModelProfile.KJRH120L2:
+            return ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
         if self.hvac_mode is HVACMode.FAN_ONLY:
             return (
                 self._attr_supported_features
@@ -127,7 +129,7 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
         return self._attr_supported_features
 
     def _ensure_climate_control_supported(self) -> None:
-        if self._is_kjrh120l_dual or self._profile is ModelProfile.KJRH120L2:
+        if self._is_kjrh120l_dual:
             raise HomeAssistantError(
                 "Climate control is unavailable because this model's write "
                 "command has not been validated"
@@ -171,6 +173,8 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     def target_temperature(self) -> float | None:
         if self._status is None or self.hvac_mode is HVACMode.FAN_ONLY:
             return None
+        if self._profile is ModelProfile.KJRH120L2:
+            return None
         # t5s_def (d+2, offset-encoded) is the active mode setpoint.
         # set_temperature (d+4, direct) is the DHW tank target.
         if self._status.t5s_def is not None:
@@ -201,12 +205,24 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         self._ensure_climate_control_supported()
+        if self._profile is ModelProfile.KJRH120L2 and hvac_mode not in (
+            HVACMode.OFF,
+            HVACMode.HEAT,
+        ):
+            raise HomeAssistantError(
+                "This model only supports Heat and Off climate modes"
+            )
         set_mode = _HVAC_TO_SET_MODE.get(hvac_mode)
         if set_mode is not None:
             await self.coordinator.async_set_device(mode=set_mode)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         self._ensure_climate_control_supported()
+        if self._profile is ModelProfile.KJRH120L2:
+            raise HomeAssistantError(
+                "Heating temperature control is unavailable because this "
+                "model's Zone-1 setpoint command has not been validated"
+            )
         if self.hvac_mode is HVACMode.FAN_ONLY:
             raise HomeAssistantError(
                 "Temperature control is unavailable in Fan Only mode"

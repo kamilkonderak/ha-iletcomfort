@@ -40,9 +40,11 @@ from custom_components.iletcomfort.model_profiles import (
     apply_profile_to_status,
     build_kjrh120l_set_temperature,
     build_kjrh120l2_set_temperature,
+    build_kjrh120l2_zone1_power,
     build_query_command,
     decode_atw_status,
     decode_kjrh120l_status,
+    decode_kjrh120l2_status,
     resolve_profile,
 )
 
@@ -158,6 +160,40 @@ def test_build_kjrh120l2_dhw_write_matches_capture():
     assert build_kjrh120l2_set_temperature(50) == (
         "aa19c300000000000002002010ffffffff01ffff00070201f4f9"
     )
+
+
+@pytest.mark.parametrize(
+    ("power_on", "expected"),
+    [
+        (
+            False,
+            "aa18c300000000000002002010ffffffff01ffff00000100f7",
+        ),
+        (
+            True,
+            "aa18c300000000000002002010ffffffff01ffff00000101f6",
+        ),
+    ],
+)
+def test_build_kjrh120l2_zone1_power_matches_captures(power_on, expected):
+    """Zone-1 heating power writes match the captured off/on commands."""
+    assert build_kjrh120l2_zone1_power(power_on) == expected
+
+
+@pytest.mark.parametrize(
+    ("power_byte", "expected_mode"),
+    [(0x00, 0), (0x01, 1)],
+)
+def test_decode_kjrh120l2_zone1_power(power_byte, expected_mode):
+    """Status body[10] reports the captured Zone-1 heating power state."""
+    body = bytearray(22)
+    body[0:3] = b"\x00\x20\x10"
+    body[10] = power_byte
+
+    status = decode_kjrh120l2_status(body)
+
+    assert status.mode == expected_mode
+    assert status.mode_name == ("Heat" if expected_mode else "Off")
 
 
 # ---------------------------------------------------------------------------
