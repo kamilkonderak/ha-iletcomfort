@@ -124,6 +124,30 @@ def test_status_and_extended_sensors_read_coordinator_data(hass: HomeAssistant):
     assert curve.value_fn(data) is True
     assert payload.value_fn(data) == "002f1001"
 
+    sensor = ILetComfortSensor(coord, payload)
+    assert sensor.native_value == "002f1001"
+    assert sensor.extra_state_attributes == {
+        "raw_payload": "002f1001",
+        "payload_length": 4,
+    }
+
+
+def test_extended_sensor_keeps_oversized_frame_in_attributes(hass: HomeAssistant):
+    """An oversized frame uses a bounded state and keeps its full payload."""
+    coord = _coordinator(hass)
+    body = bytes(range(128))
+    coord.data["extended"] = {"2f10": body}
+    desc = next(d for d in SENSOR_DESCRIPTIONS if d.key == "extended_2f10_raw")
+
+    sensor = ILetComfortSensor(coord, desc)
+
+    assert sensor.native_value == "available"
+    assert len(str(sensor.native_value)) <= 255
+    assert sensor.extra_state_attributes == {
+        "raw_payload": body.hex(),
+        "payload_length": len(body),
+    }
+
 
 def test_extended_sensor_is_unavailable_without_a_cached_frame(hass: HomeAssistant):
     """A missing extended response remains unavailable, never an empty value."""

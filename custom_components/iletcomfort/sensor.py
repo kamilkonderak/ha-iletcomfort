@@ -35,6 +35,7 @@ class ILetComfortSensorDescription(SensorEntityDescription):
     """Describe an iLetComfort sensor."""
 
     value_fn: Callable[[dict[str, Any]], Any]
+    attributes_fn: Callable[[dict[str, Any]], dict[str, Any] | None] | None = None
 
 
 def _s(attr: str) -> Callable[[dict[str, Any]], Any]:
@@ -59,6 +60,29 @@ def _extended(group: str) -> Callable[[dict[str, Any]], Any]:
         frames = data.get("extended") or {}
         body = frames.get(group)
         return body.hex() if body else None
+    return _get
+
+
+def _extended_state(group: str) -> Callable[[dict[str, Any]], Any]:
+    """Return the payload when it fits in a state, otherwise availability."""
+    def _get(data: dict[str, Any]) -> Any:
+        payload = _extended(group)(data)
+        if payload is None:
+            return None
+        return payload if len(payload) <= 255 else "available"
+    return _get
+
+
+def _extended_attributes(group: str) -> Callable[[dict[str, Any]], dict[str, Any] | None]:
+    """Return the complete extended response as state attributes."""
+    def _get(data: dict[str, Any]) -> dict[str, Any] | None:
+        payload = _extended(group)(data)
+        if payload is None:
+            return None
+        return {
+            "raw_payload": payload,
+            "payload_length": len(payload) // 2,
+        }
     return _get
 
 
@@ -297,19 +321,22 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         key="extended_2f10_raw",
         name="Extended 2F10 Raw Payload",
         icon="mdi:code-braces",
-        value_fn=_extended("2f10"),
+        value_fn=_extended_state("2f10"),
+        attributes_fn=_extended_attributes("2f10"),
     ),
     ILetComfortSensorDescription(
         key="extended_2f11_raw",
         name="Extended 2F11 Raw Payload",
         icon="mdi:code-braces",
-        value_fn=_extended("2f11"),
+        value_fn=_extended_state("2f11"),
+        attributes_fn=_extended_attributes("2f11"),
     ),
     ILetComfortSensorDescription(
         key="extended_2f12_raw",
         name="Extended 2F12 Raw Payload",
         icon="mdi:code-braces",
-        value_fn=_extended("2f12"),
+        value_fn=_extended_state("2f12"),
+        attributes_fn=_extended_attributes("2f12"),
     ),
 )
 
@@ -352,8 +379,12 @@ class ILetComfortSensor(CoordinatorEntity[ILetComfortCoordinator], SensorEntity)
     @property
     def extra_state_attributes(  # pyright: ignore[reportIncompatibleVariableOverride]
         self,
-    ) -> dict[str, str] | None:
+    ) -> dict[str, Any] | None:
         """Expose panel fault details without changing the numeric sensor state."""
+        if self.entity_description.attributes_fn is not None:
+            if self.coordinator.data is None:
+                return None
+            return self.entity_description.attributes_fn(self.coordinator.data)
         if self.entity_description.key != "error_code":
             return None
         error_code = self.native_value
