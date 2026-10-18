@@ -103,6 +103,22 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         value_fn=_s("t2_temp"),
     ),
     ILetComfortSensorDescription(
+        key="t2b_temperature",
+        name="T2b Temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("t2b_temp"),
+    ),
+    ILetComfortSensorDescription(
+        key="t1_temperature",
+        name="T1 Temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("t1_temp"),
+    ),
+    ILetComfortSensorDescription(
         key="refrigerant",
         name="Refrigerant Temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
