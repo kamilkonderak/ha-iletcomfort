@@ -853,18 +853,10 @@ class ILetComfortClient:
         control_type: str,
         fields: dict[str, Any],
     ) -> str:
-        """Encode a semantic control object into a locally validated C3 frame."""
-        result = self._semantic_request(
-            SEMANTIC_ENCODE_PATH,
-            {
-                "deviceinfo": self._semantic_device_info(sn8),
-                "control": {"control_type": control_type, **fields},
-            },
+        """Refuse control encoding until its request shape is captured."""
+        raise ApiError(
+            "Semantic control encoding requires an official-app control capture"
         )
-        frame = result.get("data")
-        if not isinstance(frame, str):
-            raise ApiError("Semantic parser returned no encoded C3 frame")
-        return validate_c3_frame(frame)
 
     def set_semantic_control(
         self,
@@ -873,10 +865,10 @@ class ILetComfortClient:
         control_type: str,
         fields: dict[str, Any],
     ) -> dict[str, str]:
-        """Encode a semantic control and send it through the Dollin transport."""
-        command = self.encode_semantic_control(sn8, control_type, fields)
-        response = self.send_hex_command(appliance_code, command)
-        return {"sent": command, "response": response}
+        """Refuse unvalidated semantic controls before any network request."""
+        raise ApiError(
+            "Semantic control encoding requires an official-app control capture"
+        )
 
     def create_app_cert(self) -> AppCert:
         """Mint an app client certificate for the vendor's MQTT broker.

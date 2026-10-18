@@ -224,7 +224,9 @@ telemetry.
 
 The authenticated EU `mibp-connector-mo-parser` observed in iOS traffic is a
 different API shape from this credential-free probe client. The `17100007`
-profile uses it only as best-effort runtime enrichment and command encoding;
-core local decoding must continue to work when it is unavailable. Never add an
-access token or request signature to fixtures. Installer and schedule controls
-need controlled hardware validation before they can move beyond read-only.
+profile uses its decode path only as best-effort read enrichment; core local
+decoding must continue to work when it is unavailable. Query encoding is
+observed, but the attempted control envelope returned HTTP 500. Do not ship any
+parser-backed write without an official-app control capture proving the exact
+request and resulting device state. Never add an access token or request
+signature to fixtures.

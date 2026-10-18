@@ -89,27 +89,18 @@ def test_semantic_decode_uses_captured_authenticated_envelope():
     assert len(kwargs["headers"]["sign"]) == 64
 
 
-def test_semantic_control_is_validated_then_sent_through_dollin():
+def test_semantic_control_is_rejected_before_any_http_request():
     client = _make_client()
-    generated = build_c3_query(1)
-    with (
-        patch.object(client, "encode_semantic_control", return_value=generated) as encode,
-        patch.object(client, "send_hex_command", return_value="response") as send,
-    ):
-        result = client.set_semantic_control(
-            "APPL1",
-            "17100007",
-            "base",
-            {"zone1_temp_set": "30"},
-        )
+    with patch.object(client._session, "post") as post:
+        with pytest.raises(ApiError, match="official-app control capture"):
+            client.set_semantic_control(
+                "APPL1",
+                "17100007",
+                "base",
+                {"zone1_temp_set": "30"},
+            )
 
-    encode.assert_called_once_with(
-        "17100007",
-        "base",
-        {"zone1_temp_set": "30"},
-    )
-    send.assert_called_once_with("APPL1", generated)
-    assert result == {"sent": generated, "response": "response"}
+    post.assert_not_called()
 
 
 def test_kjrh120l2_query_caches_best_effort_semantic_state():

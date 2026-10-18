@@ -133,8 +133,8 @@
       "notes": [
         "Direct Dollin frames and the local sn8-gated decoder remain authoritative for core entities.",
         "Authenticated parser decoding is optional runtime enrichment; successful fields are exposed as sensors and cached local values survive parser failures.",
-        "Parser-generated ordinary user controls are locally C3-validated before being sent through Dollin.",
-        "Installer group 2080 and complete schedule writes remain read-only; group 2100 capability fields are diagnostic sensors."
+        "The parser is read-only runtime enrichment: query encoding is observed, while an attempted control envelope returned HTTP 500.",
+        "Confirmed direct writes are Zone-1 power, DHW setpoint, and weather-curve state/type; all other semantic fields remain read-only."
       ],
       "related_issues": [47, 59]
     }

@@ -105,13 +105,13 @@ The full per-device serial `sn` is **redacted** and never stored.
 - `17100007` (`KJRH-120L2`) has a dedicated, capture-backed profile for the base `0x2010` response,
   `0x20B0` telemetry, `0x2F11`/`0x2F12` energy counters, and selected controller groups. Confirmed
   local writes cover Zone-1 power, DHW setpoint, and Zone-1 weather-curve state/type. The authenticated
-  semantic parser is optional runtime enrichment and command encoding for documented user functions;
-  generated frames are validated before Dollin sends them. Installer group `2080` and complete schedule
-  writes remain read-only. When a Zone-1 curve is active under water-temperature control, climate target
-  writes must be disabled; room-temperature control remains adjustable. Curve families are Standard,
-  ECO, and Custom; Standard has presets 1-8, while Custom detail points come from `2080`. The manual's
-  curve offset has no captured semantic field and must not be invented. Never persist parser tokens,
-  signatures, or per-device identifiers.
+  semantic parser is optional **read-only** enrichment. Its encode endpoint is validated only for query
+  generation; attempted semantic control encoding returned HTTP 500, so never route controls through it
+  without an official-app control capture proving the request shape and resulting device state. Installer,
+  schedule, Holiday, ECO, silent, room-setpoint, and other semantic-only writes remain read-only. Curve
+  families are Standard, ECO, and Custom; Standard has presets 1-8, while Custom detail points come from
+  `2080`. The manual's curve offset has no captured semantic field and must not be invented. Never persist
+  parser tokens, signatures, or per-device identifiers.
 
 Key decode constants (`api.py`): base offset `d=1` (body[0] is the subtype byte);
 `_temp_offset(raw) = raw - TEMP_OFFSET` with `TEMP_OFFSET=35`, returning `None` for

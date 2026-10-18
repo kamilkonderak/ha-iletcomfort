@@ -542,13 +542,7 @@ async def test_read_only_mode_rejects_control_without_calling_client(
     with pytest.raises(HomeAssistantError, match="read-only"):
         await coordinator.async_set_device(temperature=42)
 
-    with pytest.raises(HomeAssistantError, match="read-only"):
-        await coordinator.async_set_semantic_control(
-            "base", {"zone1_temp_set": "30"}
-        )
-
     cls.return_value.set_device.assert_not_called()
-    cls.return_value.set_semantic_control.assert_not_called()
 
 
 def _degraded_coordinator(hass: HomeAssistant) -> tuple[ILetComfortCoordinator, MagicMock]:

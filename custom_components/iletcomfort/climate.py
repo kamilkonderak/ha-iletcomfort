@@ -38,7 +38,6 @@ from .model_profiles import (
 from .semantic import (
     coerce_semantic_value,
     semantic_value,
-    zone1_manual_temperature_available,
 )
 
 # Query response mode (from device) → HA HVAC mode
@@ -103,21 +102,12 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     def hvac_mode(self) -> HVACMode:
         if self._status is None:
             return HVACMode.OFF
-        if self._profile is ModelProfile.KJRH120L2:
-            if semantic_value(self.coordinator.data, "zone1_power_state", "2010") == "off":
-                return HVACMode.OFF
-            mode = semantic_value(self.coordinator.data, "run_mode_set", "2010")
-            return {
-                "heat": HVACMode.HEAT,
-                "cool": HVACMode.COOL,
-                "auto": HVACMode.AUTO,
-            }.get(mode, _QUERY_MODE_TO_HVAC.get(self._status.mode, HVACMode.OFF))
         return _QUERY_MODE_TO_HVAC.get(self._status.mode, HVACMode.OFF)
 
     @property
     def hvac_modes(self) -> list[HVACMode]:
         if self._profile is ModelProfile.KJRH120L2:
-            return [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL, HVACMode.AUTO]
+            return [HVACMode.OFF, HVACMode.HEAT]
         return list(self._attr_hvac_modes)
 
     @property
@@ -140,10 +130,7 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
         if self._is_kjrh120l_dual:
             return ClimateEntityFeature(0)
         if self._profile is ModelProfile.KJRH120L2:
-            features = ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
-            if zone1_manual_temperature_available(self.coordinator.data):
-                features |= ClimateEntityFeature.TARGET_TEMPERATURE
-            return features
+            return ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
         if self.hvac_mode is HVACMode.FAN_ONLY:
             return (
                 self._attr_supported_features
@@ -197,9 +184,7 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
         if self._status is None or self.hvac_mode is HVACMode.FAN_ONLY:
             return None
         if self._profile is ModelProfile.KJRH120L2:
-            return coerce_semantic_value(
-                semantic_value(self.coordinator.data, "zone1_temp_set", "2010")
-            )
+            return None
         # t5s_def (d+2, offset-encoded) is the active mode setpoint.
         # set_temperature (d+4, direct) is the DHW tank target.
         if self._status.t5s_def is not None:
@@ -251,21 +236,12 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         self._ensure_climate_control_supported()
         if self._profile is ModelProfile.KJRH120L2:
-            if hvac_mode is HVACMode.OFF:
-                await self.coordinator.async_set_semantic_control(
-                    "base", {"zone1_power_state": "off"}
+            if hvac_mode not in (HVACMode.OFF, HVACMode.HEAT):
+                raise HomeAssistantError(
+                    "This model only has validated Heat and Off controls"
                 )
-                return
-            run_mode = {
-                HVACMode.HEAT: "heat",
-                HVACMode.COOL: "cool",
-                HVACMode.AUTO: "auto",
-            }.get(hvac_mode)
-            if run_mode is None:
-                raise HomeAssistantError("Unsupported KJRH-120L2 HVAC mode")
-            await self.coordinator.async_set_semantic_control(
-                "base",
-                {"run_mode_set": run_mode, "zone1_power_state": "on"},
+            await self.coordinator.async_set_device(
+                mode=MODE_HEAT if hvac_mode is HVACMode.HEAT else MODE_OFF
             )
             return
         set_mode = _HVAC_TO_SET_MODE.get(hvac_mode)
@@ -275,18 +251,10 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     async def async_set_temperature(self, **kwargs: Any) -> None:
         self._ensure_climate_control_supported()
         if self._profile is ModelProfile.KJRH120L2:
-            if not zone1_manual_temperature_available(self.coordinator.data):
-                raise HomeAssistantError(
-                    "Manual temperature control is disabled while the Zone-1 "
-                    "weather curve controls water temperature"
-                )
-            temp = kwargs.get(ATTR_TEMPERATURE)
-            if temp is not None:
-                clamped = max(self.min_temp, min(float(temp), self.max_temp))
-                await self.coordinator.async_set_semantic_control(
-                    "base", {"zone1_temp_set": f"{clamped:g}"}
-                )
-            return
+            raise HomeAssistantError(
+                "Heating temperature control is unavailable because this "
+                "model's Zone-1 setpoint command has not been validated"
+            )
         if self.hvac_mode is HVACMode.FAN_ONLY:
             raise HomeAssistantError(
                 "Temperature control is unavailable in Fan Only mode"
@@ -302,17 +270,13 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     async def async_turn_on(self) -> None:
         self._ensure_climate_control_supported()
         if self._profile is ModelProfile.KJRH120L2:
-            await self.coordinator.async_set_semantic_control(
-                "base", {"zone1_power_state": "on"}
-            )
+            await self.coordinator.async_set_device(power_on=True)
             return
         await self.coordinator.async_set_device(power_on=True)
 
     async def async_turn_off(self) -> None:
         self._ensure_climate_control_supported()
         if self._profile is ModelProfile.KJRH120L2:
-            await self.coordinator.async_set_semantic_control(
-                "base", {"zone1_power_state": "off"}
-            )
+            await self.coordinator.async_set_device(mode=MODE_OFF)
             return
         await self.coordinator.async_set_device(mode=MODE_OFF)

@@ -497,41 +497,6 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         await self.async_request_refresh()
 
-    async def async_set_semantic_control(
-        self,
-        control_type: str,
-        fields: dict[str, Any],
-    ) -> None:
-        """Encode and send a model-aware semantic control, then refresh."""
-        if self._operation_mode in (
-            OPERATION_MODE_READ_ONLY,
-            OPERATION_MODE_PHONE_APP,
-        ):
-            raise HomeAssistantError(
-                "Control is disabled in read-only mode; switch to HA primary "
-                "mode to send commands"
-            )
-        sn8 = self.sn8
-        if not sn8:
-            raise HomeAssistantError("Semantic control requires a known model code")
-
-        async def _send() -> None:
-            await self.hass.async_add_executor_job(
-                self.client.set_semantic_control,
-                self.appliance_code,
-                sn8,
-                control_type,
-                fields,
-            )
-
-        try:
-            await _send()
-        except AuthError:
-            _LOGGER.info("Auth error during semantic set, re-authenticating")
-            await self._async_login()
-            await _send()
-        await self.async_request_refresh()
-
     # -- MQTT real-time push (issue #55, phone-app coexistence mode) --
 
     async def async_start_push(self) -> None:

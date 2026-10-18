@@ -68,11 +68,12 @@ eco, disinfection, schedule, capability, and installer settings. Every field
 successfully returned by the vendor semantic decoder is exposed as a sensor;
 installer (`2080`) and capability (`2100`) fields are marked diagnostic.
 
-Controls include Zone-1 power, Heat/Cool/Auto mode and setpoint, DHW power and
-setpoint, room setpoint, Fast DHW, forced tank heater, silent level, ECO,
-disinfection, Holiday Mode, and the Zone-1 weather-curve switch and preset selector. The
-semantic service generates the model-specific command, which is locally
-validated before the existing Dollin appliance endpoint sends it.
+Controls are limited to hardware-captured direct commands: Zone-1 Heat/Off,
+the DHW setpoint, and the Zone-1 weather-curve switch and preset selector.
+Parser-decoded fields such as Holiday Mode, ECO, silent mode, DHW power, room
+setpoint, and disinfection remain read-only. The observed parser encode endpoint
+successfully creates query frames but returns HTTP 500 for the attempted control
+shape, so it is not used for runtime control.
 
 Semantic decoding is best-effort. The local decoder remains authoritative for
 core climate and telemetry entities, so a semantic-service outage does not
@@ -80,12 +81,11 @@ break established readings. Installer parameters and complete daily/weekly
 schedules are intentionally read-only until their multi-field update behavior
 is validated.
 
-The Zone-1 curve controls mirror the wired controller: a profile selector
-chooses **Standard**, **ECO**, or **Custom**, while the preset selector exposes
-Standard curves 1-8 and Custom. When a curve controls the Zone-1 water
-temperature, Home Assistant removes manual target-temperature control from the
-climate entity and rejects direct setpoint writes. Room-temperature control
-remains adjustable, matching the producer manual.
+The Zone-1 curve preset selector exposes Standard curves 1-8 and Custom using
+the captured direct field write. Standard/ECO/Custom family state is shown in
+the details sensor, but ECO/profile switching remains read-only until its app
+control request is captured. Zone-1 manual temperature control is also hidden:
+the semantic field is readable, but its binary write command is unvalidated.
 
 The **Zone-1 Weather Curve Details** sensor shows the active family, Standard
 preset, temperature-control mode, outdoor temperature, ECO timer, and the
