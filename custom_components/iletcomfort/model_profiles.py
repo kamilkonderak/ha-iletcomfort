@@ -72,6 +72,9 @@ KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_CURVE_ENABLED_INDEX = 22
 KJRH120L2_CURVE_TYPE_INDEX = 78
 KJRH120L2_CURVE_TYPE_LEGACY_INDEX = 77
+KJRH120L2_DHW_TEMP_INDEX = 60
+KJRH120L2_WATER_OUTLET_TEMP_INDEX = 104
+KJRH120L2_OUTDOOR_TEMP_INDEX = 105
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
 
@@ -417,6 +420,18 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
     return status
 
 
+def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
+    """Decode the confirmed direct-temperature fields in a KJRH-120L2 frame."""
+    sensors = ITSSensors(raw_body=bytes(body))
+    if len(body) > KJRH120L2_DHW_TEMP_INDEX:
+        sensors.th_temp = body[KJRH120L2_DHW_TEMP_INDEX]
+    if len(body) > KJRH120L2_WATER_OUTLET_TEMP_INDEX:
+        sensors.twout_temp = float(body[KJRH120L2_WATER_OUTLET_TEMP_INDEX])
+    if len(body) > KJRH120L2_OUTDOOR_TEMP_INDEX:
+        sensors.t4_temp = float(body[KJRH120L2_OUTDOOR_TEMP_INDEX])
+    return sensors
+
+
 def build_kjrh120l2_zone1_power(power_on: bool) -> str:
     """Build the captured KJRH-120L2 Zone-1 heating power command."""
     body = bytes.fromhex(
@@ -563,6 +578,9 @@ __all__ = [
     "KJRH120L2_DHW_SETPOINT_INDEX",
     "KJRH120L2_CURVE_ENABLED_INDEX",
     "KJRH120L2_CURVE_TYPE_INDEX",
+    "KJRH120L2_DHW_TEMP_INDEX",
+    "KJRH120L2_WATER_OUTLET_TEMP_INDEX",
+    "KJRH120L2_OUTDOOR_TEMP_INDEX",
     "KJRH120L2_ZONE1_POWER_INDEX",
     "KJRH120L2_DHW_TEMP_MAX",
     "KJRH120L2_DHW_TEMP_MIN",
@@ -578,6 +596,7 @@ __all__ = [
     "decode_atw_status",
     "decode_kjrh120l_status",
     "decode_kjrh120l2_status",
+    "decode_kjrh120l2_sensors",
     "build_kjrh120l2_set_temperature",
     "build_kjrh120l2_zone1_power",
     "build_kjrh120l2_curve_state",

@@ -46,6 +46,7 @@ from custom_components.iletcomfort.model_profiles import (
     build_query_command,
     decode_atw_status,
     decode_kjrh120l_status,
+    decode_kjrh120l2_sensors,
     decode_kjrh120l2_status,
     resolve_profile,
 )
@@ -260,17 +261,19 @@ def test_decode_kjrh120l2_curve_type_falls_back_from_invalid_captured_offset():
     assert status.kjrh120l2_curve_type == 2
 
 
-def test_kjrh120l2_sensor_values_are_not_suppressed():
-    """KJRH-120L2 keeps generic sensor values for the HA entities."""
-    body = bytearray(32)
-    body[21:28] = bytes([55, 56, 57, 58, 59, 60, 61])
-    sensors = decode_its_sensors(body)
+def test_decode_kjrh120l2_sensor_temperatures():
+    """KJRH-120L2 direct-temperature fields use the captured offsets."""
+    body = bytearray(106)
+    body[60] = 44
+    body[104] = 26
+    body[105] = 10
 
-    result = apply_profile_to_sensors(ModelProfile.KJRH120L2, sensors, None)
+    sensors = decode_kjrh120l2_sensors(body)
 
-    assert result.t3_temp == 20.0
-    assert result.t4_temp == 21.0
-    assert result.twin_temp == 24.0
+    assert sensors.th_temp == 44
+    assert sensors.twout_temp == 26.0
+    assert sensors.t4_temp == 10.0
+    assert sensors.t3_temp is None
 
 
 # ---------------------------------------------------------------------------

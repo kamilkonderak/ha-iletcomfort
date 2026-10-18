@@ -808,6 +808,7 @@ class ILetComfortClient:
         from .model_profiles import (
             ModelProfile,
             build_query_command,
+            decode_kjrh120l2_sensors,
             resolve_profile,
         )
 
@@ -823,6 +824,8 @@ class ILetComfortClient:
                 f"({len(body)} body bytes); device may be offline or "
                 f"unsupported. Raw: {response_hex}"
             )
+        if profile is ModelProfile.KJRH120L2:
+            return decode_kjrh120l2_sensors(body)
         return decode_its_sensors(body)
 
     def set_device(
