@@ -240,6 +240,26 @@ def test_decode_kjrh120l2_curve_state_and_type():
     assert status.kjrh120l2_curve_type == 2
 
 
+def test_decode_kjrh120l2_curve_type_from_short_status_frame():
+    """Accept the deployed frame variant with the type at the prior offset."""
+    body = bytearray(78)
+    body[77] = 2
+
+    status = decode_kjrh120l2_status(body)
+
+    assert status.kjrh120l2_curve_type == 2
+
+
+def test_decode_kjrh120l2_curve_type_falls_back_from_invalid_captured_offset():
+    """Use the prior offset when a full frame reports no valid type at body[78]."""
+    body = bytearray(79)
+    body[77] = 2
+
+    status = decode_kjrh120l2_status(body)
+
+    assert status.kjrh120l2_curve_type == 2
+
+
 # ---------------------------------------------------------------------------
 # Query command encoding (KJRH-120L short form, issues #21 / #5)
 # ---------------------------------------------------------------------------

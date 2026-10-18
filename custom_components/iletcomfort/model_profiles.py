@@ -71,6 +71,7 @@ KJRH120L2_DHW_SETPOINT_INDEX = 20
 KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_CURVE_ENABLED_INDEX = 22
 KJRH120L2_CURVE_TYPE_INDEX = 78
+KJRH120L2_CURVE_TYPE_LEGACY_INDEX = 77
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
 
@@ -393,6 +394,17 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
         )
     if len(body) > KJRH120L2_CURVE_TYPE_INDEX:
         curve_type = body[KJRH120L2_CURVE_TYPE_INDEX]
+        status.kjrh120l2_curve_type = curve_type if 1 <= curve_type <= 9 else None
+        if (
+            status.kjrh120l2_curve_type is None
+            and len(body) > KJRH120L2_CURVE_TYPE_LEGACY_INDEX
+        ):
+            curve_type = body[KJRH120L2_CURVE_TYPE_LEGACY_INDEX]
+            status.kjrh120l2_curve_type = (
+                curve_type if 1 <= curve_type <= 9 else None
+            )
+    elif len(body) > KJRH120L2_CURVE_TYPE_LEGACY_INDEX:
+        curve_type = body[KJRH120L2_CURVE_TYPE_LEGACY_INDEX]
         status.kjrh120l2_curve_type = curve_type if 1 <= curve_type <= 9 else None
     if len(body) > KJRH120L2_DHW_SETPOINT_INDEX + 1:
         dhw_setpoint = (
