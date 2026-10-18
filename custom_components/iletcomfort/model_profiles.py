@@ -82,6 +82,13 @@ KJRH120L2_TWOUT_TEMP_INDEX = 24
 KJRH120L2_T2B_TEMP_INDEX = 130
 KJRH120L2_DHW_TEMP_INDEX = 132
 KJRH120L2_T1_TEMP_INDEX = 124
+KJRH120L2_WATER_FLOW_INDEX = 126
+KJRH120L2_CURRENT_CAPACITY_INDEX = 129
+KJRH120L2_PWM_PUMP_OUTPUT_INDEX = 139
+KJRH120L2_HEAT_TOTAL_CAPACITY_INDEX = 146
+KJRH120L2_INSTANT_POWER_INDEX = 158
+KJRH120L2_INSTANT_RENEWABLE_POWER_INDEX = 162
+KJRH120L2_TOTAL_RENEWABLE_POWER_INDEX = 166
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
 
@@ -451,6 +458,19 @@ def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
         sensors.th_temp = _decode_kjrh120l2_temperature(
             body[KJRH120L2_DHW_TEMP_INDEX], body[KJRH120L2_DHW_TEMP_INDEX + 1],
         )
+    if len(body) > KJRH120L2_WATER_FLOW_INDEX:
+        sensors.water_flow = body[KJRH120L2_WATER_FLOW_INDEX] / 100
+    for attr, index in (
+        ("current_unit_capacity", KJRH120L2_CURRENT_CAPACITY_INDEX),
+        ("heat_total_capacity", KJRH120L2_HEAT_TOTAL_CAPACITY_INDEX),
+        ("instant_power", KJRH120L2_INSTANT_POWER_INDEX),
+        ("instant_renewable_power", KJRH120L2_INSTANT_RENEWABLE_POWER_INDEX),
+        ("total_renewable_power", KJRH120L2_TOTAL_RENEWABLE_POWER_INDEX),
+    ):
+        if len(body) > index + 1:
+            setattr(sensors, attr, (body[index] << 8) | body[index + 1])
+    if len(body) > KJRH120L2_PWM_PUMP_OUTPUT_INDEX:
+        sensors.pwm_pump_output = body[KJRH120L2_PWM_PUMP_OUTPUT_INDEX]
     return sensors
 
 
@@ -616,6 +636,7 @@ __all__ = [
     "KJRH120L2_ZONE1_POWER_INDEX",
     "KJRH120L2_DHW_TEMP_MAX",
     "KJRH120L2_DHW_TEMP_MIN",
+    "KJRH120L2_WATER_FLOW_INDEX",
     "KJRH120L2_SN8",
     "KJRH120L_TEMP_MAX",
     "KJRH120L_TEMP_MIN",

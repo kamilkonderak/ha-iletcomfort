@@ -399,8 +399,14 @@ class ITSSensors:
     tp_temp: int = 0
     th_temp: int = 0
     water_pres: int = 0
-    water_flow: int = 0
+    water_flow: float | None = None
     capacity_hp: int = 0
+    current_unit_capacity: int | None = None
+    pwm_pump_output: int | None = None
+    heat_total_capacity: int | None = None
+    instant_power: int | None = None
+    instant_renewable_power: int | None = None
+    total_renewable_power: int | None = None
     t3_temp: float | None = None
     t4_temp: float | None = None
     t2_temp: float | None = None
@@ -456,7 +462,7 @@ def decode_its_sensors(body: bytearray) -> ITSSensors:
         sensors.th_temp = body[d + 16]
     if body_len > d + 18:
         sensors.water_pres = body[d + 17]
-        sensors.water_flow = body[d + 18]
+        sensors.water_flow = body[d + 18] / 10
     if body_len > d + 19:
         sensors.capacity_hp = body[d + 19]
     if body_len > d + 26:

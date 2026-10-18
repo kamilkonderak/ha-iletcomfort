@@ -198,6 +198,49 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         suggested_display_precision=1,
         value_fn=_s("odu_current"),
     ),
+    ILetComfortSensorDescription(
+        key="water_flow",
+        name="Water Flow",
+        native_unit_of_measurement="L/min",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("water_flow"),
+    ),
+    ILetComfortSensorDescription(
+        key="current_unit_capacity",
+        name="Current Unit Capacity",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("current_unit_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="pwm_pump_output",
+        name="Pump Output",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("pwm_pump_output"),
+    ),
+    ILetComfortSensorDescription(
+        key="heat_total_capacity",
+        name="Total Heat Capacity",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("heat_total_capacity"),
+    ),
+    ILetComfortSensorDescription(
+        key="instant_power",
+        name="Instant Power",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("instant_power"),
+    ),
+    ILetComfortSensorDescription(
+        key="instant_renewable_power",
+        name="Instant Renewable Power",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("instant_renewable_power"),
+    ),
+    ILetComfortSensorDescription(
+        key="total_renewable_power",
+        name="Total Renewable Power",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_s("total_renewable_power"),
+    ),
 )
 
 

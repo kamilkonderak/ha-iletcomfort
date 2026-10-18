@@ -286,6 +286,13 @@ def test_decode_kjrh120l2_sensor_temperatures():
     assert sensors.t1_temp == 28.3
     assert sensors.t2b_temp == 44.0
     assert sensors.th_temp == 43.7
+    assert sensors.water_flow == 0.8
+    assert sensors.current_unit_capacity == 423
+    assert sensors.pwm_pump_output == 37
+    assert sensors.heat_total_capacity == 748
+    assert sensors.instant_power == 75
+    assert sensors.instant_renewable_power == 369
+    assert sensors.total_renewable_power == 349
 
 
 def test_decode_kjrh120l2_little_endian_whole_degree_temperature():
