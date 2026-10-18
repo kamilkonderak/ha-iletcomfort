@@ -25,6 +25,7 @@ from custom_components.iletcomfort.model_profiles import (
     ATW_SN8,
     AQUAPURA_SN8,
     KJRH120L_SN8,
+    KJRH120L2_SN8,
     decode_atw_status,
     decode_kjrh120l_status,
 )
@@ -254,6 +255,50 @@ def test_kjrh120l_dual_climate_shows_zone1_target_without_controls():
     entity = _climate(KJRH120L_SN8, ITSSensors(), _dual_kjrh_status())
     assert entity.target_temperature == 19
     assert entity.supported_features == 0
+
+
+def test_kjrh120l2_climate_exposes_captured_heating_power_only():
+    """KJRH-120L2 exposes validated heating power, not an unvalidated target."""
+    status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
+    entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+
+    assert entity.hvac_mode is HVACMode.HEAT
+    assert entity.target_temperature is None
+    assert entity.supported_features == (
+        ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
+    )
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs", "expected"),
+    [
+        ("async_set_hvac_mode", {"hvac_mode": HVACMode.HEAT}, {"mode": 1}),
+        ("async_set_hvac_mode", {"hvac_mode": HVACMode.OFF}, {"mode": 0}),
+        ("async_turn_on", {}, {"power_on": True}),
+        ("async_turn_off", {}, {"mode": 0}),
+    ],
+)
+async def test_kjrh120l2_climate_sends_captured_heating_power(
+    method, kwargs, expected,
+):
+    """Climate power actions route to the validated KJRH-120L2 writes."""
+    status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
+    entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+
+    await getattr(entity, method)(**kwargs)
+
+    entity.coordinator.async_set_device.assert_awaited_once_with(**expected)
+
+
+async def test_kjrh120l2_climate_rejects_unvalidated_heating_setpoint():
+    """A DHW target must not be reused as a Zone-1 heating target."""
+    status = decode_kjrh120l2_status(bytearray([0] * 10 + [1] + [0] * 11))
+    entity = _climate(KJRH120L2_SN8, ITSSensors(), status)
+
+    with pytest.raises(HomeAssistantError, match="setpoint command"):
+        await entity.async_set_temperature(**{ATTR_TEMPERATURE: 22})
+
+    entity.coordinator.async_set_device.assert_not_awaited()
 
 
 @pytest.mark.parametrize(
