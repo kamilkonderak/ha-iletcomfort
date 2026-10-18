@@ -28,6 +28,7 @@ from custom_components.iletcomfort.model_profiles import (
     AQUAPURA_SN8,
     ATW_SN8,
     KJRH120L2_SN8,
+    KJRH120L2_CONTROLLER_GROUPS,
     KJRH120L2_QUERY,
     KJRH120L2_SENSORS_QUERY,
     KJRH120L2_DHW_SETPOINT_INDEX,
@@ -147,6 +148,23 @@ def test_kjrh120l2_sn8_uses_captured_base_query_profile():
     assert resolve_profile(KJRH120L2_SN8) is ModelProfile.KJRH120L2
     assert build_query_command(ModelProfile.KJRH120L2, 0x01) == KJRH120L2_QUERY
     assert build_query_command(ModelProfile.KJRH120L2, 0x02) == KJRH120L2_SENSORS_QUERY
+
+
+def test_kjrh120l2_collects_capability_group_as_raw_evidence():
+    """The app's short 2100 capability response is retained for diagnostics."""
+    assert KJRH120L2_CONTROLLER_GROUPS == (
+        0x2020,
+        0x2040,
+        0x2050,
+        0x2060,
+        0x2070,
+        0x2080,
+        0x2090,
+        0x20D0,
+        0x20E0,
+        0x20F0,
+        0x2100,
+    )
 
 
 def test_decode_kjrh120l2_reads_dhw_setpoint_in_tenths():

@@ -25,6 +25,7 @@ from custom_components.iletcomfort.error_codes import ERROR_CODES
 from custom_components.iletcomfort.select import ILetComfortMuteSelect
 from custom_components.iletcomfort.sensor import (
     SENSOR_DESCRIPTIONS,
+    ILetComfortSemanticSensor,
     ILetComfortSensor,
 )
 from custom_components.iletcomfort.switch import ILetComfortBoostSwitch
@@ -157,6 +158,30 @@ def test_extended_sensor_is_unavailable_without_a_cached_frame(hass: HomeAssista
     )
 
     assert payload.value_fn(coord.data) is None
+
+
+def test_semantic_sensor_exposes_numeric_vendor_field(hass: HomeAssistant):
+    coord = _coordinator(hass)
+    coord.data["semantic"] = {
+        "2010": {"zone1_temp_set": "24", "zone2_temp_set": "invalid"},
+    }
+
+    zone1 = ILetComfortSemanticSensor(coord, "2010", "zone1_temp_set")
+    zone2 = ILetComfortSemanticSensor(coord, "2010", "zone2_temp_set")
+
+    assert zone1.native_value == 24
+    assert zone1.extra_state_attributes == {"command_group": "2010"}
+    assert zone2.native_value is None
+
+
+def test_installer_semantic_sensor_is_diagnostic(hass: HomeAssistant):
+    coord = _coordinator(hass)
+    coord.data["semantic"] = {"2080": {"t4Dhwmax": "43"}}
+
+    sensor = ILetComfortSemanticSensor(coord, "2080", "t4Dhwmax")
+
+    assert sensor.native_value == 43
+    assert sensor.entity_category == "diagnostic"
 
 
 def _error_code_sensor(hass: HomeAssistant, error_code: int) -> ILetComfortSensor:

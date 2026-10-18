@@ -65,9 +65,16 @@ def test_unavailable_bundles_cannot_claim_parser_success() -> None:
 def test_real_extraction_gap_is_explicit_not_equated_across_models() -> None:
     row = next(row for row in _matrix()["models"] if row["sn8"] == "17100007")
 
+    assert row["local_profile"] == "KJRH120L2"
     assert row["catalogue"]["status"] == "extracted_unresolved"
     assert "28 control" in row["catalogue"]["reason"]
     assert row["type_selectors"] == ["none asserted; dynamic params"]
+    assert row["parser_endpoint"] == {
+        "status": "observed_authenticated",
+        "base_url": "https://eu.ibuildinghvac.com",
+        "encode_path": "/api/mibp-connector-mo-parser/mibp/sys/mg_iot/encode",
+        "decode_path": "/api/mibp-connector-mo-parser/mibp/sys/mg_iot/decode",
+    }
 
 
 def test_real_extraction_summary_is_sanitized_and_reviewable() -> None:

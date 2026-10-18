@@ -221,3 +221,10 @@ cannot transmit a generated frame to an appliance. It is for offline protocol
 research and fixture review. Keep fixture inputs synthetic or minimally
 sanitized; never commit tokens, full device serials, signed URLs, or private
 telemetry.
+
+The authenticated EU `mibp-connector-mo-parser` observed in iOS traffic is a
+different API shape from this credential-free probe client. The `17100007`
+profile uses it only as best-effort runtime enrichment and command encoding;
+core local decoding must continue to work when it is unavailable. Never add an
+access token or request signature to fixtures. Installer and schedule controls
+need controlled hardware validation before they can move beyond read-only.

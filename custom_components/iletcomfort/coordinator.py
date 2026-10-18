@@ -303,6 +303,7 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         energy = cached.get("energy")
         controller_frames: dict[str, bytes] = cached.get("controller_frames", {})
         controller = cached.get("controller", {})
+        semantic: dict[str, dict[str, Any]] = cached.get("semantic", {})
         if resolve_profile(sn8) is ModelProfile.KJRH120L2:
             try:
                 extended = await self.hass.async_add_executor_job(
@@ -330,6 +331,7 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._last_controller_data_refresh = time.monotonic()
                 except (AuthError, Exception) as err:  # noqa: BLE001
                     _LOGGER.debug("Controller settings query failed: %s", err)
+            semantic = self.client.semantic_state or semantic
 
         self._update_offline_repair()
 
@@ -340,6 +342,7 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "energy": energy,
             "controller_frames": controller_frames,
             "controller": controller,
+            "semantic": semantic,
         }
 
     def _update_offline_repair(self) -> None:
@@ -492,6 +495,41 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     **kwargs,
                 )
             )
+        await self.async_request_refresh()
+
+    async def async_set_semantic_control(
+        self,
+        control_type: str,
+        fields: dict[str, Any],
+    ) -> None:
+        """Encode and send a model-aware semantic control, then refresh."""
+        if self._operation_mode in (
+            OPERATION_MODE_READ_ONLY,
+            OPERATION_MODE_PHONE_APP,
+        ):
+            raise HomeAssistantError(
+                "Control is disabled in read-only mode; switch to HA primary "
+                "mode to send commands"
+            )
+        sn8 = self.sn8
+        if not sn8:
+            raise HomeAssistantError("Semantic control requires a known model code")
+
+        async def _send() -> None:
+            await self.hass.async_add_executor_job(
+                self.client.set_semantic_control,
+                self.appliance_code,
+                sn8,
+                control_type,
+                fields,
+            )
+
+        try:
+            await _send()
+        except AuthError:
+            _LOGGER.info("Auth error during semantic set, re-authenticating")
+            await self._async_login()
+            await _send()
         await self.async_request_refresh()
 
     # -- MQTT real-time push (issue #55, phone-app coexistence mode) --

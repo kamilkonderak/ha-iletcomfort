@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import json
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -20,7 +21,10 @@ from custom_components.iletcomfort.api import (
 
 
 def _make_client() -> ILetComfortClient:
-    return ILetComfortClient(api_base="https://us.dollin.net")
+    return ILetComfortClient(
+        api_base="https://us.dollin.net",
+        semantic_base="https://us.ibuildinghvac.com",
+    )
 
 
 def _c3_frame(body: bytes) -> str:
@@ -54,6 +58,79 @@ def test_mask_identifier_empty_and_none_return_empty_string():
 def test_mask_identifier_respects_custom_keep():
     """A custom ``keep`` controls the visible prefix length."""
     assert mask_identifier("153931629126443", keep=3) == "153…"
+
+
+def test_semantic_decode_uses_captured_authenticated_envelope():
+    client = _make_client()
+    client.access_token = "us_A_token"
+    response = Mock()
+    response.json.return_value = {
+        "code": 0,
+        "data": {"status": {"zone1_temp_set": "24", "zone1_power_state": "on"}},
+    }
+    with patch.object(client._session, "post", return_value=response) as post:
+        result = client.decode_semantic_frame("17100007", build_c3_query(1))
+
+    assert result == {"zone1_temp_set": "24", "zone1_power_state": "on"}
+    url, = post.call_args.args
+    kwargs = post.call_args.kwargs
+    assert url.endswith("/api/mibp-connector-mo-parser/mibp/sys/mg_iot/decode")
+    assert json.loads(kwargs["data"]) == {
+        "msg": {"data": build_c3_query(1)},
+        "deviceinfo": {
+            "deviceSubType": "1",
+            "modelSN8": "17100007",
+            "deviceType": "0xC3",
+        },
+    }
+    assert kwargs["headers"]["accessToken"] == "us_A_token"
+    assert kwargs["headers"]["appId"] == "8010"
+    assert kwargs["headers"]["registerRegion"] == "us"
+    assert len(kwargs["headers"]["sign"]) == 64
+
+
+def test_semantic_control_is_validated_then_sent_through_dollin():
+    client = _make_client()
+    generated = build_c3_query(1)
+    with (
+        patch.object(client, "encode_semantic_control", return_value=generated) as encode,
+        patch.object(client, "send_hex_command", return_value="response") as send,
+    ):
+        result = client.set_semantic_control(
+            "APPL1",
+            "17100007",
+            "base",
+            {"zone1_temp_set": "30"},
+        )
+
+    encode.assert_called_once_with(
+        "17100007",
+        "base",
+        {"zone1_temp_set": "30"},
+    )
+    send.assert_called_once_with("APPL1", generated)
+    assert result == {"sent": generated, "response": "response"}
+
+
+def test_kjrh120l2_query_caches_best_effort_semantic_state():
+    client = _make_client()
+    body = bytes([0x00, 0x20, 0x10]) + bytes(20)
+    with (
+        patch.object(client, "send_hex_command", return_value=_c3_frame(body)),
+        patch.object(
+            client,
+            "decode_semantic_frame",
+            return_value={
+                "cmd_type": "2010",
+                "zone1_temp_set": "24",
+                "zone1_power_state": "on",
+            },
+        ),
+    ):
+        client.query_status("APPL1", sn8="17100007")
+
+    assert client.semantic_state["2010"]["zone1_temp_set"] == "24"
+    assert client.semantic_state["2010"]["zone1_power_state"] == "on"
 
 
 def test_login_success_returns_data_and_stores_token():

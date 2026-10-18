@@ -135,6 +135,8 @@ async def async_get_config_entry_diagnostics(
         "status": _serialize_frame(data.get("status")),
         "sensors": _serialize_frame(data.get("sensors")),
         "extended": _serialize_extended(data.get("extended")),
+        "controller_frames": _serialize_extended(data.get("controller_frames")),
+        "semantic": data.get("semantic", {}),
         "sensors_temperature_scan": _sensors_temperature_scan(
             sensors_obj.raw_body
             if (sensors_obj := data.get("sensors")) is not None

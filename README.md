@@ -58,6 +58,28 @@ For integration testing, select **Read-only (polling without control)** in the
 integration options. Home Assistant continues its normal cloud polling but all
 control commands are rejected, so telemetry can be tested without changing the
 heat pump.
+
+### KJRH-120L2 (`sn8` `17100007`)
+
+The integration uses a model-specific local decoder for this controller. Home
+Assistant can display hydronic temperatures, DHW temperature and setpoint,
+water flow, operating state, energy counters, and selected holiday, silent,
+eco, disinfection, schedule, capability, and installer settings. Every field
+successfully returned by the vendor semantic decoder is exposed as a sensor;
+installer (`2080`) and capability (`2100`) fields are marked diagnostic.
+
+Controls include Zone-1 power, Heat/Cool/Auto mode and setpoint, DHW power and
+setpoint, room setpoint, Fast DHW, forced tank heater, silent level, ECO,
+disinfection, Holiday Mode, and the Zone-1 weather-curve switch and preset selector. The
+semantic service generates the model-specific command, which is locally
+validated before the existing Dollin appliance endpoint sends it.
+
+Semantic decoding is best-effort. The local decoder remains authoritative for
+core climate and telemetry entities, so a semantic-service outage does not
+break established readings. Installer parameters and complete daily/weekly
+schedules are intentionally read-only until their multi-field update behavior
+is validated.
+
 ## Showing water temperatures on a dashboard
 
 Home Assistant's built-in thermostat card shows the climate entity's current
