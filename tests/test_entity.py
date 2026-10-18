@@ -97,6 +97,44 @@ def test_odu_current_sensor_exists_and_reads_scaled_amps(hass: HomeAssistant):
     assert sensor.extra_state_attributes is None
 
 
+def test_status_and_extended_sensors_read_coordinator_data(hass: HomeAssistant):
+    """Confirmed status values and cached 2Fxx frames are exposed directly."""
+    coord = _coordinator(hass)
+    coord.data["status"] = ITSStatus(
+        mode=1,
+        mode_name="Heat",
+        fan_total_run_hours=12,
+        kjrh120l2_curve_enabled=True,
+        kjrh120l2_curve_type=3,
+    )
+    coord.data["extended"] = {"2f10": bytes.fromhex("00 2f 10 01")}
+
+    mode = next(d for d in SENSOR_DESCRIPTIONS if d.key == "operating_mode")
+    fan_hours = next(d for d in SENSOR_DESCRIPTIONS if d.key == "fan_run_hours")
+    curve = next(
+        d for d in SENSOR_DESCRIPTIONS if d.key == "weather_curve_enabled"
+    )
+    payload = next(
+        d for d in SENSOR_DESCRIPTIONS if d.key == "extended_2f10_raw"
+    )
+    data = coord.data
+
+    assert mode.value_fn(data) == "Heat"
+    assert fan_hours.value_fn(data) == 12
+    assert curve.value_fn(data) is True
+    assert payload.value_fn(data) == "002f1001"
+
+
+def test_extended_sensor_is_unavailable_without_a_cached_frame(hass: HomeAssistant):
+    """A missing extended response remains unavailable, never an empty value."""
+    coord = _coordinator(hass)
+    payload = next(
+        d for d in SENSOR_DESCRIPTIONS if d.key == "extended_2f11_raw"
+    )
+
+    assert payload.value_fn(coord.data) is None
+
+
 def _error_code_sensor(hass: HomeAssistant, error_code: int) -> ILetComfortSensor:
     """Build the existing numeric error-code sensor with a selected code."""
     coord = _coordinator(hass)

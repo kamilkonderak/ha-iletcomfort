@@ -53,6 +53,15 @@ def _st(attr: str) -> Callable[[dict[str, Any]], Any]:
     return _get
 
 
+def _extended(group: str) -> Callable[[dict[str, Any]], Any]:
+    """Return a cached extended response as hex, when available."""
+    def _get(data: dict[str, Any]) -> Any:
+        frames = data.get("extended") or {}
+        body = frames.get(group)
+        return body.hex() if body else None
+    return _get
+
+
 SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ILetComfortSensorDescription(
         key="water_inlet",
@@ -179,6 +188,46 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         value_fn=_st("error_code"),
     ),
     ILetComfortSensorDescription(
+        key="operating_mode",
+        name="Operating Mode",
+        icon="mdi:heat-pump-outline",
+        value_fn=_st("mode_name"),
+    ),
+    ILetComfortSensorDescription(
+        key="compressor_running",
+        name="Compressor Running",
+        icon="mdi:engine-outline",
+        value_fn=_st("comp_running"),
+    ),
+    ILetComfortSensorDescription(
+        key="fan_run_hours",
+        name="Fan Run Hours",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=_st("fan_total_run_hours"),
+    ),
+    ILetComfortSensorDescription(
+        key="zone1_dhw_setpoint",
+        name="DHW Setpoint",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_st("kjrh120l_dhw_setpoint"),
+    ),
+    ILetComfortSensorDescription(
+        key="weather_curve_enabled",
+        name="Weather Curve Enabled",
+        icon="mdi:chart-bell-curve-cumulative",
+        value_fn=_st("kjrh120l2_curve_enabled"),
+    ),
+    ILetComfortSensorDescription(
+        key="weather_curve_type",
+        name="Weather Curve Type",
+        icon="mdi:chart-bell-curve",
+        value_fn=_st("kjrh120l2_curve_type"),
+    ),
+    ILetComfortSensorDescription(
         key="odu_voltage",
         name="ODU Voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
@@ -240,6 +289,27 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         name="Total Renewable Power",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_s("total_renewable_power"),
+    ),
+    # The vendor exposes these groups, but their internal fields are not
+    # documented or present in a recoverable capture. Keep the validated raw
+    # responses visible without assigning unverified units or offsets.
+    ILetComfortSensorDescription(
+        key="extended_2f10_raw",
+        name="Extended 2F10 Raw Payload",
+        icon="mdi:code-braces",
+        value_fn=_extended("2f10"),
+    ),
+    ILetComfortSensorDescription(
+        key="extended_2f11_raw",
+        name="Extended 2F11 Raw Payload",
+        icon="mdi:code-braces",
+        value_fn=_extended("2f11"),
+    ),
+    ILetComfortSensorDescription(
+        key="extended_2f12_raw",
+        name="Extended 2F12 Raw Payload",
+        icon="mdi:code-braces",
+        value_fn=_extended("2f12"),
     ),
 )
 
