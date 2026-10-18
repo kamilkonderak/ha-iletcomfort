@@ -305,6 +305,36 @@ def test_set_device_kjrh120l2_zone1_power_matches_captures(kwargs, expected):
     assert mock_send.call_args.args == ("APPL1", expected)
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        (
+            {"curve_enabled": False},
+            "aa18c300000000000002002010ffffffff01ffff00360100c1",
+        ),
+        (
+            {"curve_enabled": True},
+            "aa18c300000000000002002010ffffffff01ffff00360101c0",
+        ),
+        (
+            {"curve_type": 2},
+            "aa18c300000000000002002010ffffffff01ffff002d0102c8",
+        ),
+        (
+            {"curve_type": 1},
+            "aa18c300000000000002002010ffffffff01ffff002d0101c9",
+        ),
+    ],
+)
+def test_set_device_kjrh120l2_curve_matches_captures(kwargs, expected):
+    """KJRH-120L2 curve writes route to the captured base-control frames."""
+    client = _make_client()
+    with patch.object(client, "send_hex_command") as mock_send:
+        client.set_device("APPL1", sn8=KJRH120L2_SN8, **kwargs)
+
+    assert mock_send.call_args.args == ("APPL1", expected)
+
+
 def test_query_status_uses_long_command_for_standard_sn8():
     """An unknown/None sn8 must keep sending the legacy long C3 status query."""
     client = _make_client()

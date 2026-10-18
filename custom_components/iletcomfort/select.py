@@ -11,9 +11,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
+from .model_profiles import ModelProfile, resolve_profile
 
 MUTE_OPTIONS = ["Off", "Level 1", "Level 2"]
 _MUTE_TO_API = {"Off": 0, "Level 1": 1, "Level 2": 2}
+CURVE_TYPE_OPTIONS = [str(value) for value in range(1, 10)]
 
 
 async def async_setup_entry(
@@ -23,7 +25,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up select entities."""
     coordinator: ILetComfortCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([ILetComfortMuteSelect(coordinator)])
+    entities: list[SelectEntity] = [ILetComfortMuteSelect(coordinator)]
+    if resolve_profile(coordinator.sn8) is ModelProfile.KJRH120L2:
+        entities.append(ILetComfortKjrh120l2CurveTypeSelect(coordinator))
+    async_add_entities(entities)
 
 
 class ILetComfortMuteSelect(CoordinatorEntity[ILetComfortCoordinator], SelectEntity):
@@ -51,3 +56,28 @@ class ILetComfortMuteSelect(CoordinatorEntity[ILetComfortCoordinator], SelectEnt
 
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.async_set_device(mute=_MUTE_TO_API[option])
+
+
+class ILetComfortKjrh120l2CurveTypeSelect(
+    CoordinatorEntity[ILetComfortCoordinator], SelectEntity
+):
+    """Zone-1 weather-curve type for KJRH-120L2."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Zone-1 Weather Curve Type"
+    _attr_icon = "mdi:chart-bell-curve-cumulative"
+    _attr_options = CURVE_TYPE_OPTIONS
+
+    def __init__(self, coordinator: ILetComfortCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.appliance_code}_zone1_curve_type"
+        self._attr_device_info = build_device_info(coordinator)
+
+    @property
+    def current_option(self) -> str | None:
+        status = (self.coordinator.data or {}).get("status")
+        curve_type = status.kjrh120l2_curve_type if status else None
+        return str(curve_type) if curve_type is not None else None
+
+    async def async_select_option(self, option: str) -> None:
+        await self.coordinator.async_set_device(curve_type=int(option))

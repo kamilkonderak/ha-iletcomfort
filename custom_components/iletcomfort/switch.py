@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
+from .model_profiles import ModelProfile, resolve_profile
 
 
 async def async_setup_entry(
@@ -22,7 +23,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up switch entities."""
     coordinator: ILetComfortCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([ILetComfortBoostSwitch(coordinator)])
+    entities: list[SwitchEntity] = [ILetComfortBoostSwitch(coordinator)]
+    if resolve_profile(coordinator.sn8) is ModelProfile.KJRH120L2:
+        entities.append(ILetComfortKjrh120l2CurveSwitch(coordinator))
+    async_add_entities(entities)
 
 
 class ILetComfortBoostSwitch(CoordinatorEntity[ILetComfortCoordinator], SwitchEntity):
@@ -51,3 +55,29 @@ class ILetComfortBoostSwitch(CoordinatorEntity[ILetComfortCoordinator], SwitchEn
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_set_device(boost=False)
+
+
+class ILetComfortKjrh120l2CurveSwitch(
+    CoordinatorEntity[ILetComfortCoordinator], SwitchEntity
+):
+    """Zone-1 weather-curve enable switch for KJRH-120L2."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Zone-1 Weather Curve"
+    _attr_icon = "mdi:chart-bell-curve-cumulative"
+
+    def __init__(self, coordinator: ILetComfortCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.appliance_code}_zone1_curve"
+        self._attr_device_info = build_device_info(coordinator)
+
+    @property
+    def is_on(self) -> bool:
+        status = (self.coordinator.data or {}).get("status")
+        return bool(status and status.kjrh120l2_curve_enabled)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_device(curve_enabled=True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_device(curve_enabled=False)
