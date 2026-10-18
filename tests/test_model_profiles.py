@@ -29,6 +29,7 @@ from custom_components.iletcomfort.model_profiles import (
     ATW_SN8,
     KJRH120L2_SN8,
     KJRH120L2_QUERY,
+    KJRH120L2_SENSORS_QUERY,
     KJRH120L2_DHW_SETPOINT_INDEX,
     KJRH120L_DHW_OFF,
     KJRH120L_DHW_ON,
@@ -143,7 +144,7 @@ def test_kjrh120l2_sn8_uses_captured_base_query_profile():
     assert KJRH120L2_SN8 == "17100007"
     assert resolve_profile(KJRH120L2_SN8) is ModelProfile.KJRH120L2
     assert build_query_command(ModelProfile.KJRH120L2, 0x01) == KJRH120L2_QUERY
-    assert build_query_command(ModelProfile.KJRH120L2, 0x02) == KJRH120L2_QUERY
+    assert build_query_command(ModelProfile.KJRH120L2, 0x02) == KJRH120L2_SENSORS_QUERY
 
 
 def test_decode_kjrh120l2_reads_dhw_setpoint_in_tenths():
@@ -262,17 +263,39 @@ def test_decode_kjrh120l2_curve_type_falls_back_from_invalid_captured_offset():
 
 
 def test_decode_kjrh120l2_sensor_temperatures():
-    """KJRH-120L2 sensor fields use the captured tenths-degree offsets."""
-    body = bytearray(106)
-    body[67:69] = bytes.fromhex("01 b8")
-    body[98:100] = bytes.fromhex("00 6e")
+    """KJRH-120L2 20B0 fields expose the vendor telemetry temperatures."""
+    body = bytearray(133)
+    body[15:17] = bytes.fromhex("01 00")
+    body[16:18] = bytes.fromhex("00 41")
+    body[18:20] = bytes.fromhex("00 6e")
+    body[20:22] = bytes.fromhex("02 08")
+    body[22:24] = bytes.fromhex("00 f1")
+    body[24:26] = bytes.fromhex("01 1e")
+    body[124:126] = bytes.fromhex("01 1b")
+    body[130:132] = bytes.fromhex("01 b8")
+    body[132:134] = bytes.fromhex("01 b5")
 
     sensors = decode_kjrh120l2_sensors(body)
 
-    assert sensors.th_temp == 44.0
+    assert sensors.t2_temp == 25.6
+    assert sensors.t3_temp == 6.5
     assert sensors.t4_temp == 11.0
-    assert sensors.twout_temp is None
-    assert sensors.t3_temp is None
+    assert sensors.tp_temp == 52.0
+    assert sensors.twin_temp == 24.1
+    assert sensors.twout_temp == 28.6
+    assert sensors.t1_temp == 28.3
+    assert sensors.t2b_temp == 44.0
+    assert sensors.th_temp == 43.7
+
+
+def test_decode_kjrh120l2_little_endian_whole_degree_temperature():
+    """Accept the observed outdoor pair 0b 00 as 11 degrees."""
+    body = bytearray(100)
+    body[98:100] = bytes.fromhex("0b 00")
+
+    sensors = decode_kjrh120l2_sensors(body)
+
+    assert sensors.t4_temp == 11.0
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +307,12 @@ def test_build_query_command_kjrh120l_short_form():
     short ``ffff<ss><ss><ss>ff`` form (subtype byte repeated 3×)."""
     assert build_query_command(ModelProfile.KJRH120L, 0x01) == "ffff010101ff"
     assert build_query_command(ModelProfile.KJRH120L, 0x02) == "ffff020202ff"
+
+
+def test_build_query_command_kjrh120l2_uses_telemetry_query_for_sensors():
+    """KJRH-120L2 status and telemetry use distinct base query groups."""
+    assert build_query_command(ModelProfile.KJRH120L2, 0x01) == KJRH120L2_QUERY
+    assert build_query_command(ModelProfile.KJRH120L2, 0x02) == KJRH120L2_SENSORS_QUERY
 
 
 @pytest.mark.parametrize("subtype", [0x01, 0x02])

@@ -67,13 +67,21 @@ AQUAPURA_SN8 = "171000AU"
 KJRH120L_SN8 = "17100003"
 KJRH120L2_SN8 = "17100007"
 KJRH120L2_QUERY = "aa14c300000000000003002010ffffffff00fffffc"
+KJRH120L2_SENSORS_QUERY = "aa14c3000000000000030020b0ffffffff00ffff5c"
 KJRH120L2_DHW_SETPOINT_INDEX = 20
 KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_CURVE_ENABLED_INDEX = 22
 KJRH120L2_CURVE_TYPE_INDEX = 78
 KJRH120L2_CURVE_TYPE_LEGACY_INDEX = 77
-KJRH120L2_DHW_TEMP_INDEX = 67
-KJRH120L2_OUTDOOR_TEMP_INDEX = 98
+KJRH120L2_T2_TEMP_INDEX = 15
+KJRH120L2_T3_TEMP_INDEX = 16
+KJRH120L2_T4_TEMP_INDEX = 18
+KJRH120L2_TP_TEMP_INDEX = 20
+KJRH120L2_TWIN_TEMP_INDEX = 22
+KJRH120L2_TWOUT_TEMP_INDEX = 24
+KJRH120L2_T2B_TEMP_INDEX = 130
+KJRH120L2_DHW_TEMP_INDEX = 132
+KJRH120L2_T1_TEMP_INDEX = 124
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
 
@@ -116,7 +124,7 @@ def build_query_command(profile: ModelProfile, subtype: int) -> str:
     if profile is ModelProfile.KJRH120L:
         return "ffff%02x%02x%02xff" % (subtype, subtype, subtype)
     if profile is ModelProfile.KJRH120L2:
-        return KJRH120L2_QUERY
+        return KJRH120L2_SENSORS_QUERY if subtype == 0x02 else KJRH120L2_QUERY
     # Lazy import: api.py imports model_profiles, so importing build_c3_query at
     # module level would risk a circular import.
     from .api import build_c3_query
@@ -420,19 +428,41 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
 
 
 def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
-    """Decode confirmed tenths-degree fields in a KJRH-120L2 base frame."""
+    """Decode the KJRH-120L2 20B0 telemetry response."""
     sensors = ITSSensors(raw_body=bytes(body))
+    for attr, index in (
+        ("t2_temp", KJRH120L2_T2_TEMP_INDEX),
+        ("t3_temp", KJRH120L2_T3_TEMP_INDEX),
+        ("t4_temp", KJRH120L2_T4_TEMP_INDEX),
+        ("tp_temp", KJRH120L2_TP_TEMP_INDEX),
+        ("twin_temp", KJRH120L2_TWIN_TEMP_INDEX),
+        ("twout_temp", KJRH120L2_TWOUT_TEMP_INDEX),
+        ("t1_temp", KJRH120L2_T1_TEMP_INDEX),
+    ):
+        if len(body) > index + 1:
+            setattr(sensors, attr, _decode_kjrh120l2_temperature(
+                body[index], body[index + 1],
+            ))
+    if len(body) > KJRH120L2_T2B_TEMP_INDEX + 1:
+        sensors.t2b_temp = _decode_kjrh120l2_temperature(
+            body[KJRH120L2_T2B_TEMP_INDEX], body[KJRH120L2_T2B_TEMP_INDEX + 1],
+        )
     if len(body) > KJRH120L2_DHW_TEMP_INDEX + 1:
-        sensors.th_temp = (
-            (body[KJRH120L2_DHW_TEMP_INDEX] << 8)
-            | body[KJRH120L2_DHW_TEMP_INDEX + 1]
-        ) / 10
-    if len(body) > KJRH120L2_OUTDOOR_TEMP_INDEX + 1:
-        sensors.t4_temp = (
-            (body[KJRH120L2_OUTDOOR_TEMP_INDEX] << 8)
-            | body[KJRH120L2_OUTDOOR_TEMP_INDEX + 1]
-        ) / 10
+        sensors.th_temp = _decode_kjrh120l2_temperature(
+            body[KJRH120L2_DHW_TEMP_INDEX], body[KJRH120L2_DHW_TEMP_INDEX + 1],
+        )
     return sensors
+
+
+def _decode_kjrh120l2_temperature(high: int, low: int) -> float:
+    """Decode KJRH temperature pairs across observed byte-order variants."""
+    big_endian = (high << 8) | low
+    if big_endian <= 1000:
+        return big_endian / 10
+    little_endian = (low << 8) | high
+    if little_endian <= 100:
+        return float(little_endian)
+    return big_endian / 10
 
 
 def build_kjrh120l2_zone1_power(power_on: bool) -> str:
@@ -578,11 +608,11 @@ __all__ = [
     "KJRH120L_DHW_TEMP_MIN",
     "KJRH120L_SN8",
     "KJRH120L2_QUERY",
+    "KJRH120L2_SENSORS_QUERY",
     "KJRH120L2_DHW_SETPOINT_INDEX",
     "KJRH120L2_CURVE_ENABLED_INDEX",
     "KJRH120L2_CURVE_TYPE_INDEX",
     "KJRH120L2_DHW_TEMP_INDEX",
-    "KJRH120L2_OUTDOOR_TEMP_INDEX",
     "KJRH120L2_ZONE1_POWER_INDEX",
     "KJRH120L2_DHW_TEMP_MAX",
     "KJRH120L2_DHW_TEMP_MIN",
