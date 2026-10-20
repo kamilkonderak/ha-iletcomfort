@@ -117,6 +117,79 @@ def compressor_running(data: dict[str, Any] | None) -> bool | None:
     return frequency > 0 if frequency is not None else None
 
 
+def _number(value: Any) -> int | float | None:
+    value = coerce_semantic_value(value)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value
+    return None
+
+
+def _status_or_semantic(
+    data: dict[str, Any] | None,
+    attr: str,
+    field: str,
+    group: str,
+    *,
+    source: str = "status",
+) -> int | float | None:
+    """Prefer a decoded frame value, else the vendor semantic reading."""
+    decoded = getattr((data or {}).get(source), attr, None)
+    if isinstance(decoded, (int, float)) and not isinstance(decoded, bool):
+        return decoded
+    return _number(semantic_value(data, field, group))
+
+
+def error_code(data: dict[str, Any] | None) -> int | None:
+    """Return the fault code, falling back to the KJRH-120L2 semantic fields."""
+    code = _status_or_semantic(data, "error_code", "error_code", "2010")
+    if code is None:
+        code = _number(semantic_value(data, "error_new_code", "2010"))
+    return int(code) if code is not None else None
+
+
+def error_active(data: dict[str, Any] | None) -> bool | None:
+    """Report a fault from any known code; ``error_code_str`` "/" is no fault."""
+    codes = [
+        _status_or_semantic(data, "error_code", "error_code", "2010"),
+        _number(semantic_value(data, "error_new_code", "2010")),
+    ]
+    known = [code for code in codes if code is not None]
+    if known:
+        return any(known)
+    label = semantic_value(data, "error_code_str", "2010")
+    if isinstance(label, str) and label.strip() and label != "invalid":
+        return label.strip() != "/"
+    return None
+
+
+def ibh_running(data: dict[str, Any] | None) -> bool | None:
+    """Return backup-heater output from status or the 20B0 IBH output flags."""
+    running = getattr((data or {}).get("status"), "ibh_running", None)
+    if isinstance(running, bool):
+        return running
+    outputs = [
+        semantic_value(data, field, "20b0")
+        for field in ("fgIBH1Output", "fgIBH2Output")
+    ]
+    if "on" in outputs:
+        return True
+    return False if "off" in outputs else None
+
+
+def odu_voltage(data: dict[str, Any] | None) -> int | float | None:
+    """Return ODU supply voltage, including KJRH-120L2 semantic telemetry."""
+    return _status_or_semantic(
+        data, "odu_voltage", "oduVoltage", "20b0", source="sensors",
+    )
+
+
+def odu_current(data: dict[str, Any] | None) -> int | float | None:
+    """Return ODU compressor current, including KJRH-120L2 semantic telemetry."""
+    return _status_or_semantic(
+        data, "odu_current", "oduCompCurrent", "20b0", source="sensors",
+    )
+
+
 def iter_semantic_fields(
     data: dict[str, Any] | None,
 ) -> Iterator[tuple[str, str]]:
