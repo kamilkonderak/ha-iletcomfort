@@ -249,6 +249,14 @@
       },
       "zone1_curve_details": {
         "name": "Szczegóły krzywej pogodowej strefy 1"
+      },
+      "dhw_schedule": {
+        "name": "Harmonogram CWU",
+        "state": {
+          "weekly": "Tygodniowy",
+          "daily": "Dzienny",
+          "off": "Wyłączony"
+        }
       }
     },
     "switch": {

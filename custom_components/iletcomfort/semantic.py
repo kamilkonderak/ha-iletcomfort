@@ -337,3 +337,144 @@ def zone1_curve_details(data: dict[str, Any] | None) -> dict[str, Any]:
     if end is not None:
         details["eco_timer_end"] = end
     return details
+
+
+# ---------------------------------------------------------------------------
+# KJRH-120L2 DHW schedule (read-only)
+# ---------------------------------------------------------------------------
+#
+# The controller has two DHW programs (user manual 5.1): a daily timer of up
+# to six commands repeated every day (group 2020, ``dhwdaytimer_*``) and a
+# weekly plan of up to four schedules, each with weekdays and four commands
+# (group 20D0, ``dhw_weeklytimer_*``). A command is a start time, a mode and
+# a target temperature. Weekday masks use bit 0 = Monday, matching the
+# disinfection weekday (16 = Friday, the vendor default); 127 = every day.
+
+DHW_DAILY_TIMERS = 6
+DHW_WEEKLY_SCHEDULES = 4
+DHW_WEEKLY_TIMERS = 4
+
+# Installer group 2080 fields relevant to DHW, keyed by attribute name. Units
+# and meanings follow the installation manual's parameter table.
+DHW_INSTALLER_FIELDS = {
+    "restart_hysteresis": "dT5On",
+    "tbh_off_hysteresis": "dT5STBHoff",
+    "heat_pump_outdoor_max": "t4Dhwmax",
+    "heat_pump_outdoor_min": "t4Dhwmin",
+    "heat_pump_max_run_minutes": "tDHWHPmax",
+    "heating_restrict_minutes": "tDHWHPrestrict",
+    "dhw_priority": "fgdhwPriorEn",
+    "tbh_delay_minutes": "tTBHdelay",
+    "tbh_outdoor_on": "t4TBHon",
+    "tbh_power_kw": "powerTbh",
+    "disinfection_temperature": "t5sDI",
+    "disinfection_max_minutes": "tDImax",
+    "disinfection_hold_minutes": "tDIhightemp",
+    "holiday_temperature": "t5SHolDhw",
+}
+
+
+def _weekday_numbers(mask: Any) -> list[int] | None:
+    """Return ISO weekdays (1 = Monday) set in a controller weekday mask."""
+    value = coerce_semantic_value(mask)
+    if not isinstance(value, int):
+        return None
+    return [day + 1 for day in range(7) if value & (1 << day)]
+
+
+def _dhw_command(
+    data: dict[str, Any] | None,
+    group: str,
+    prefix: str,
+    enabled_field: str,
+    hour_field: str,
+    minute_field: str,
+) -> dict[str, Any] | None:
+    """Return one enabled schedule command, or None when off or incomplete."""
+    if semantic_value(data, enabled_field, group) != "on":
+        return None
+    hour = coerce_semantic_value(semantic_value(data, hour_field, group))
+    minute = coerce_semantic_value(semantic_value(data, minute_field, group))
+    if not isinstance(hour, int) or not isinstance(minute, int):
+        return None
+    return {
+        "start": f"{hour:02d}:{minute:02d}",
+        "mode": semantic_value(data, f"{prefix}mode", group),
+        "temperature": coerce_semantic_value(
+            semantic_value(data, f"{prefix}temp", group)
+        ),
+    }
+
+
+def dhw_daily_commands(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Return the enabled DHW daily-timer commands sorted by start time."""
+    commands = []
+    for timer in range(1, DHW_DAILY_TIMERS + 1):
+        base = f"dhwdaytimer_timer{timer}"
+        command = _dhw_command(
+            data, "2020", f"{base}_", f"{base}en",
+            f"{base}_openhour", f"{base}_openmin",
+        )
+        if command is not None:
+            commands.append(command)
+    return sorted(commands, key=lambda item: item["start"])
+
+
+def dhw_weekly_schedules(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Return every reported DHW weekly schedule with its enabled commands."""
+    schedules = []
+    for number in range(1, DHW_WEEKLY_SCHEDULES + 1):
+        base = f"dhw_weeklytimer_schedule_{number}"
+        status = semantic_value(data, f"{base}_status", "20d0")
+        if status is None:
+            continue
+        commands = []
+        for timer in range(1, DHW_WEEKLY_TIMERS + 1):
+            prefix = f"{base}_timer_{timer}_"
+            command = _dhw_command(
+                data, "20d0", prefix, f"{prefix}en",
+                f"{prefix}starthour", f"{prefix}startmin",
+            )
+            if command is not None:
+                commands.append(command)
+        schedules.append({
+            "number": number,
+            "enabled": status == "on",
+            "weekdays": _weekday_numbers(
+                semantic_value(data, f"{base}_weekday", "20d0")
+            ),
+            "commands": sorted(commands, key=lambda item: item["start"]),
+        })
+    return schedules
+
+
+def dhw_schedule_mode(data: dict[str, Any] | None) -> str | None:
+    """Return which DHW program is active: weekly, daily, off, or unknown."""
+    weekly = semantic_value(data, "dhw_weeklytimer_status", "20d0")
+    daily_known = semantic_value(data, "dhwdaytimer_timer1en", "2020") is not None
+    if weekly is None and not daily_known:
+        return None
+    if weekly == "on":
+        return "weekly"
+    if dhw_daily_commands(data):
+        return "daily"
+    return "off"
+
+
+def dhw_schedule_details(data: dict[str, Any] | None) -> dict[str, Any]:
+    """Build the DHW schedule and installer settings for one sensor."""
+    details: dict[str, Any] = {
+        "weekly_enabled": semantic_value(data, "dhw_weeklytimer_status", "20d0") == "on",
+        "weekly_schedules": dhw_weekly_schedules(data),
+        "daily_commands": dhw_daily_commands(data),
+    }
+    settings = {}
+    for name, field in DHW_INSTALLER_FIELDS.items():
+        value = coerce_semantic_value(semantic_value(data, field, "2080"))
+        if value in ("on", "off"):
+            value = value == "on"
+        if value is not None:
+            settings[name] = value
+    if settings:
+        details["installer_settings"] = settings
+    return details

@@ -188,6 +188,14 @@
       },
       "zone1_curve_details": {
         "name": "Zone-1 Weather Curve Details"
+      },
+      "dhw_schedule": {
+        "name": "DHW Schedule",
+        "state": {
+          "weekly": "Weekly",
+          "daily": "Daily",
+          "off": "Off"
+        }
       }
     },
     "switch": {

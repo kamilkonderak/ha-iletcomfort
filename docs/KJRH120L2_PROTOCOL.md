@@ -695,6 +695,7 @@ request shape and the device's resulting state.
 | Zone-1 Weather Curve switch | Body `[22]`; write field `0x36` |
 | Zone-1 Weather Curve Type select | Body `[72]`; write field `0x2D` |
 | Zone-1 Weather Curve Details sensor | Semantic state plus `0x2080` custom endpoints; read-only |
+| DHW Schedule sensor | Semantic `2020` daily timer, `20D0` weekly plans, and DHW fields of `2080`; read-only (weekday mask bit 0 = Monday) |
 | Dynamic semantic sensors | Successful semantic decode fields; read-only |
 
 Climate target temperature is intentionally unavailable for KJRH-120L2 because
