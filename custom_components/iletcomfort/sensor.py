@@ -13,12 +13,13 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    UnitOfEnergy,
-    UnitOfFrequency,
-    UnitOfTemperature,
-    UnitOfTime,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
+    UnitOfEnergy,
+    UnitOfFrequency,
+    UnitOfPower,
+    UnitOfTemperature,
+    UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -29,16 +30,16 @@ from .const import DOMAIN
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
 from .error_codes import ERROR_CODES
+from .model_profiles import ModelProfile, resolve_profile
 from .semantic import (
-    SEMANTIC_DIAGNOSTIC_GROUPS,
     coerce_semantic_value,
+    compressor_frequency,
     iter_semantic_fields,
     semantic_field_name,
     semantic_value,
     zone1_curve_details,
     zone1_curve_profile,
 )
-from .model_profiles import ModelProfile, resolve_profile
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -128,7 +129,7 @@ def _extended_attributes(group: str) -> Callable[[dict[str, Any]], dict[str, Any
 SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ILetComfortSensorDescription(
         key="water_inlet",
-        name="Water Inlet Temperature",
+        translation_key="water_inlet",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -136,7 +137,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="water_outlet",
-        name="Water Outlet Temperature",
+        translation_key="water_outlet",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -144,7 +145,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="dhw_tank",
-        name="DHW Tank Temperature",
+        translation_key="dhw_tank",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -152,7 +153,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="outdoor_ambient",
-        name="Outdoor Ambient Temperature",
+        translation_key="outdoor_ambient",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -160,7 +161,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="condenser",
-        name="Condenser Temperature",
+        translation_key="condenser",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -168,7 +169,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="evaporator",
-        name="Evaporator Temperature",
+        translation_key="evaporator",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -176,7 +177,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="t2b_temperature",
-        name="T2b Temperature",
+        translation_key="t2b_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -184,7 +185,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="t1_temperature",
-        name="T1 Temperature",
+        translation_key="t1_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -192,7 +193,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="refrigerant",
-        name="Refrigerant Temperature",
+        translation_key="refrigerant",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -200,7 +201,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="plate_hx",
-        name="Plate Heat Exchanger Temperature",
+        translation_key="plate_hx",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -208,15 +209,15 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="compressor_freq",
-        name="Compressor Frequency",
+        translation_key="compressor_freq",
         native_unit_of_measurement=UnitOfFrequency.HERTZ,
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_st("comp_frq"),
+        value_fn=compressor_frequency,
     ),
     ILetComfortSensorDescription(
         key="total_energy",
-        name="Total Energy",
+        translation_key="total_energy",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -224,7 +225,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="comp_run_hours",
-        name="Compressor Run Hours",
+        translation_key="comp_run_hours",
         native_unit_of_measurement=UnitOfTime.HOURS,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -232,39 +233,33 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="pressure_high",
-        name="High Pressure",
+        translation_key="pressure_high",
         icon="mdi:gauge-full",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_st("pressure_h"),
     ),
     ILetComfortSensorDescription(
         key="pressure_low",
-        name="Low Pressure",
+        translation_key="pressure_low",
         icon="mdi:gauge-low",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_st("pressure_l"),
     ),
     ILetComfortSensorDescription(
         key="error_code",
-        name="Error Code",
+        translation_key="error_code",
         icon="mdi:alert-circle-outline",
         value_fn=_st("error_code"),
     ),
     ILetComfortSensorDescription(
         key="operating_mode",
-        name="Operating Mode",
+        translation_key="operating_mode",
         icon="mdi:heat-pump-outline",
         value_fn=_st("mode_name"),
     ),
     ILetComfortSensorDescription(
-        key="compressor_running",
-        name="Compressor Running",
-        icon="mdi:engine-outline",
-        value_fn=_st("comp_running"),
-    ),
-    ILetComfortSensorDescription(
         key="fan_run_hours",
-        name="Fan Run Hours",
+        translation_key="fan_run_hours",
         native_unit_of_measurement=UnitOfTime.HOURS,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -272,7 +267,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="zone1_dhw_setpoint",
-        name="DHW Setpoint",
+        translation_key="zone1_dhw_setpoint",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -280,19 +275,19 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="weather_curve_enabled",
-        name="Weather Curve Enabled",
+        translation_key="weather_curve_enabled",
         icon="mdi:chart-bell-curve-cumulative",
         value_fn=_st("kjrh120l2_curve_enabled"),
     ),
     ILetComfortSensorDescription(
         key="weather_curve_type",
-        name="Weather Curve Type",
+        translation_key="weather_curve_type",
         icon="mdi:chart-bell-curve",
         value_fn=_st("kjrh120l2_curve_type"),
     ),
     ILetComfortSensorDescription(
         key="odu_voltage",
-        name="ODU Voltage",
+        translation_key="odu_voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -303,7 +298,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     # (issue #11): raw 1024 -> 4.0 A. See decode_its_sensors() in api.py.
     ILetComfortSensorDescription(
         key="odu_current",
-        name="ODU Current",
+        translation_key="odu_current",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -312,50 +307,64 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="water_flow",
-        name="Water Flow",
+        translation_key="water_flow",
         native_unit_of_measurement="L/min",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_s("water_flow"),
     ),
     ILetComfortSensorDescription(
         key="current_unit_capacity",
-        name="Current Unit Capacity",
+        translation_key="current_unit_capacity",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_s("current_unit_capacity"),
     ),
     ILetComfortSensorDescription(
         key="pwm_pump_output",
-        name="Pump Output",
+        translation_key="pwm_pump_output",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_s("pwm_pump_output"),
     ),
     ILetComfortSensorDescription(
         key="heat_total_capacity",
-        name="Total Heat Capacity",
+        translation_key="heat_total_capacity",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_s("heat_total_capacity"),
     ),
     ILetComfortSensorDescription(
         key="instant_power",
-        name="Instant Power",
+        translation_key="instant_power",
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
         value_fn=_s("instant_power"),
     ),
     ILetComfortSensorDescription(
         key="instant_renewable_power",
-        name="Instant Renewable Power",
+        translation_key="instant_renewable_power",
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
         value_fn=_s("instant_renewable_power"),
     ),
     ILetComfortSensorDescription(
         key="total_renewable_power",
-        name="Total Renewable Power",
+        translation_key="total_renewable_power",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_s("total_renewable_power"),
     ),
     ILetComfortSensorDescription(
         key="heating_capacity",
-        name="Heating Capacity",
+        translation_key="heating_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -363,7 +372,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="heating_renewable_energy",
-        name="Heating Renewable Energy",
+        translation_key="heating_renewable_energy",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -371,7 +380,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="heating_electric_consumption",
-        name="Heating Electricity Consumption",
+        translation_key="heating_electric_consumption",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -379,14 +388,14 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="heating_cop",
-        name="Heating COP",
+        translation_key="heating_cop",
         icon="mdi:chart-line",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_e("heat_cop"),
     ),
     ILetComfortSensorDescription(
         key="heating_day_capacity",
-        name="Heating Day Capacity",
+        translation_key="heating_day_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -394,7 +403,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="heating_week_capacity",
-        name="Heating Week Capacity",
+        translation_key="heating_week_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -402,7 +411,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="heating_month_capacity",
-        name="Heating Month Capacity",
+        translation_key="heating_month_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -410,7 +419,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="heating_year_capacity",
-        name="Heating Year Capacity",
+        translation_key="heating_year_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -418,7 +427,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="total_electric_consumption",
-        name="Total Electricity Consumption",
+        translation_key="total_electric_consumption",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -426,7 +435,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="total_heat_pump_capacity",
-        name="Total Heat Pump Capacity",
+        translation_key="total_heat_pump_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -434,7 +443,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="total_renewable_energy",
-        name="Total Renewable Energy",
+        translation_key="total_renewable_energy",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -442,7 +451,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="dhw_year_capacity",
-        name="DHW Year Capacity",
+        translation_key="dhw_year_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -450,7 +459,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="dhw_year_renewable_energy",
-        name="DHW Year Renewable Energy",
+        translation_key="dhw_year_renewable_energy",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -458,7 +467,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="dhw_year_electric_consumption",
-        name="DHW Year Electricity Consumption",
+        translation_key="dhw_year_electric_consumption",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -466,35 +475,35 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     ),
     ILetComfortSensorDescription(
         key="dhw_year_cop",
-        name="DHW Year COP",
+        translation_key="dhw_year_cop",
         icon="mdi:chart-line",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_e("dhw_year_cop"),
     ),
     ILetComfortSensorDescription(
         key="holiday_away_settings",
-        name="Holiday Away Settings",
+        translation_key="holiday_away_settings",
         icon="mdi:home-export-outline",
         value_fn=_controller_state("holiday_away"),
         attributes_fn=_controller_attributes("holiday_away"),
     ),
     ILetComfortSensorDescription(
         key="silent_settings",
-        name="Silent Settings",
+        translation_key="silent_settings",
         icon="mdi:volume-off",
         value_fn=_controller_state("silent"),
         attributes_fn=_controller_attributes("silent"),
     ),
     ILetComfortSensorDescription(
         key="eco_settings",
-        name="Eco Settings",
+        translation_key="eco_settings",
         icon="mdi:leaf",
         value_fn=_controller_state("eco"),
         attributes_fn=_controller_attributes("eco"),
     ),
     ILetComfortSensorDescription(
         key="disinfection_settings",
-        name="Disinfection Settings",
+        translation_key="disinfection_settings",
         icon="mdi:water-boiler-alert",
         value_fn=_controller_state("disinfection"),
         attributes_fn=_controller_attributes("disinfection"),
@@ -504,21 +513,21 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
     # responses visible without assigning unverified units or offsets.
     ILetComfortSensorDescription(
         key="extended_2f10_raw",
-        name="Extended 2F10 Raw Payload",
+        translation_key="extended_2f10_raw",
         icon="mdi:code-braces",
         value_fn=_extended_state("2f10"),
         attributes_fn=_extended_attributes("2f10"),
     ),
     ILetComfortSensorDescription(
         key="extended_2f11_raw",
-        name="Extended 2F11 Raw Payload",
+        translation_key="extended_2f11_raw",
         icon="mdi:code-braces",
         value_fn=_extended_state("2f11"),
         attributes_fn=_extended_attributes("2f11"),
     ),
     ILetComfortSensorDescription(
         key="extended_2f12_raw",
-        name="Extended 2F12 Raw Payload",
+        translation_key="extended_2f12_raw",
         icon="mdi:code-braces",
         value_fn=_extended_state("2f12"),
         attributes_fn=_extended_attributes("2f12"),
@@ -533,15 +542,26 @@ async def async_setup_entry(
 ) -> None:
     """Set up sensor entities."""
     coordinator: ILetComfortCoordinator = hass.data[DOMAIN][entry.entry_id]
+    profile = resolve_profile(coordinator.sn8)
+    duplicate_kjrh120l2_sensors = {
+        "total_renewable_power",
+        "zone1_dhw_setpoint",
+        "weather_curve_enabled",
+        "weather_curve_type",
+    }
     entities: list[SensorEntity] = [
         ILetComfortSensor(coordinator, description)
         for description in SENSOR_DESCRIPTIONS
+        if not (
+            profile is ModelProfile.KJRH120L2
+            and description.key in duplicate_kjrh120l2_sensors
+        )
     ]
     entities.extend(
         ILetComfortSemanticSensor(coordinator, group, field)
         for group, field in iter_semantic_fields(coordinator.data)
     )
-    if resolve_profile(coordinator.sn8) is ModelProfile.KJRH120L2:
+    if profile is ModelProfile.KJRH120L2:
         entities.append(ILetComfortCurveDetailsSensor(coordinator))
     async_add_entities(entities)
 
@@ -589,6 +609,8 @@ class ILetComfortSemanticSensor(
     """Expose one model-aware field returned by the vendor semantic decoder."""
 
     _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
     def __init__(
         self,
@@ -604,8 +626,6 @@ class ILetComfortSemanticSensor(
             f"{coordinator.appliance_code}_semantic_{self._group}_{field}"
         )
         self._attr_device_info = build_device_info(coordinator)
-        if self._group in SEMANTIC_DIAGNOSTIC_GROUPS:
-            self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> Any:
@@ -624,7 +644,7 @@ class ILetComfortCurveDetailsSensor(
     """Summarize Zone-1 curve family, preset, points, and ECO timing."""
 
     _attr_has_entity_name = True
-    _attr_name = "Zone-1 Weather Curve Details"
+    _attr_translation_key = "zone1_curve_details"
     _attr_icon = "mdi:chart-bell-curve-cumulative"
 
     def __init__(self, coordinator: ILetComfortCoordinator) -> None:

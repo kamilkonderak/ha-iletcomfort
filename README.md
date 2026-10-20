@@ -95,6 +95,10 @@ estimates the active water target by interpolating those endpoints. The wired
 controller manual describes a curve offset, but no corresponding semantic field
 exists in the captured app protocol, so offset control is not exposed yet.
 
+Maintainers and capture contributors can find every known query group, byte
+offset, scale, captured write field, exact frame, and unsupported boundary in
+[the KJRH-120L2 protocol reference](docs/KJRH120L2_PROTOCOL.md).
+
 ## Showing water temperatures on a dashboard
 
 Home Assistant's built-in thermostat card shows the climate entity's current

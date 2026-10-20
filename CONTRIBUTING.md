@@ -230,3 +230,8 @@ observed, but the attempted control envelope returned HTTP 500. Do not ship any
 parser-backed write without an official-app control capture proving the exact
 request and resulting device state. Never add an access token or request
 signature to fixtures.
+
+For `17100007`, update
+[`docs/KJRH120L2_PROTOCOL.md`](docs/KJRH120L2_PROTOCOL.md) with each accepted
+query/write code, offset, scale, and sanitized vector. Its regression test must
+pass before the change is submitted.

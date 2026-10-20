@@ -434,8 +434,8 @@ class ITSSensors:
     current_unit_capacity: int | None = None
     pwm_pump_output: int | None = None
     heat_total_capacity: int | None = None
-    instant_power: int | None = None
-    instant_renewable_power: int | None = None
+    instant_power: float | None = None
+    instant_renewable_power: float | None = None
     total_renewable_power: int | None = None
     t3_temp: float | None = None
     t4_temp: float | None = None

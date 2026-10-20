@@ -52,7 +52,7 @@ class ILetComfortKjrh120l2DhwSetpoint(
     """DHW target using the captured KJRH-120L2 framed write."""
 
     _attr_has_entity_name = True
-    _attr_name = "DHW Setpoint"
+    _attr_translation_key = "dhw_setpoint"
     _attr_icon = "mdi:water-thermometer"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_native_min_value = float(KJRH120L2_DHW_TEMP_MIN)
@@ -94,7 +94,7 @@ class ILetComfortKjrh120lDhwSetpoint(
     """DHW target using the hardware-confirmed KJRH-120L field 0x07 write."""
 
     _attr_has_entity_name = True
-    _attr_name = "DHW Setpoint"
+    _attr_translation_key = "dhw_setpoint"
     _attr_icon = "mdi:water-thermometer"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_native_min_value = float(KJRH120L_DHW_TEMP_MIN)

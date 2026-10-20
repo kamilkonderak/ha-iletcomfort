@@ -7,7 +7,60 @@ from collections.abc import Iterator
 from typing import Any
 
 SEMANTIC_METADATA_FIELDS = {"cmd_type", "msg_up_type", "query_type", "version"}
-SEMANTIC_DIAGNOSTIC_GROUPS = {"2080", "2100"}
+SEMANTIC_FIELDS_WITH_NATIVE_ENTITIES = {
+    "2010": {
+        "error_code",
+        "dhw_temp_set",
+        "fastdhw_state",
+        "forcetbh_state",
+        "run_mode_set",
+        "tank_actual_temp",
+        "zone1_curve_state",
+        "zone1_curve_type",
+        "zone1_power_state",
+    },
+    "20b0": {
+        "compRunFreq",
+        "currentUnitCapacity",
+        "heatTotCapacity0",
+        "instantPower0",
+        "instantRenewPower0",
+        "oduCompCurrent",
+        "oduVoltage",
+        "pwmPumpOut",
+        "tempT1",
+        "tempT2",
+        "tempT2b",
+        "tempT3",
+        "tempT4",
+        "tempTf",
+        "tempTh",
+        "tempTp",
+        "tempTwin",
+        "tempTwout",
+        "totalRenewPower0",
+        "waterFlow",
+    },
+    "2f11": {
+        "SysHeatCapacity",
+        "SysHeatCOPEER",
+        "SysHeatDayCapacity",
+        "SysHeatElecConsum",
+        "SysHeatMonthCapacity",
+        "SysHeatRenewPower",
+        "SysHeatWeekCapacity",
+        "SysHeatYearCapacity",
+    },
+    "2f12": {
+        "SysDhwYearCOPEER",
+        "SysDhwYearCapacity",
+        "SysDhwYearElecConsum",
+        "SysDhwYearRenewPower",
+        "SysTotalHPCapacity",
+        "SysTotalPowerConsum",
+        "SysTotalRenewPower",
+    },
+}
 
 
 def semantic_value(
@@ -39,6 +92,31 @@ def coerce_semantic_value(value: Any) -> Any:
     return value
 
 
+def compressor_frequency(data: dict[str, Any] | None) -> int | float | None:
+    """Return the decoded compressor frequency, including KJRH-120L2 telemetry."""
+    status = (data or {}).get("status")
+    frequency = getattr(status, "comp_frq", None)
+    if isinstance(frequency, (int, float)) and not isinstance(frequency, bool):
+        return frequency
+
+    frequency = coerce_semantic_value(
+        semantic_value(data, "compRunFreq", "20b0")
+    )
+    if isinstance(frequency, (int, float)) and not isinstance(frequency, bool):
+        return frequency
+    return None
+
+
+def compressor_running(data: dict[str, Any] | None) -> bool | None:
+    """Infer compressor activity only from an actual frequency reading."""
+    status = (data or {}).get("status")
+    running = getattr(status, "comp_running", None)
+    if isinstance(running, bool):
+        return running
+    frequency = compressor_frequency(data)
+    return frequency > 0 if frequency is not None else None
+
+
 def iter_semantic_fields(
     data: dict[str, Any] | None,
 ) -> Iterator[tuple[str, str]]:
@@ -49,7 +127,12 @@ def iter_semantic_fields(
         if not isinstance(values, dict):
             continue
         for field in sorted(values):
-            if field not in SEMANTIC_METADATA_FIELDS:
+            if (
+                field not in SEMANTIC_METADATA_FIELDS
+                and field not in SEMANTIC_FIELDS_WITH_NATIVE_ENTITIES.get(
+                    str(group).lower(), set()
+                )
+            ):
                 yield str(group).lower(), str(field)
 
 

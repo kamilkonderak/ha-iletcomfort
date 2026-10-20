@@ -71,7 +71,7 @@ class ILetComfortClimate(CoordinatorEntity[ILetComfortCoordinator], ClimateEntit
     """Climate entity for ITS heat pump."""
 
     _attr_has_entity_name = True
-    _attr_name = "Heat Pump"
+    _attr_translation_key = "heat_pump"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL, HVACMode.FAN_ONLY]
     _attr_supported_features = (

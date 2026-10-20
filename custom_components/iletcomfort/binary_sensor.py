@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,27 +19,26 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
+from .semantic import compressor_running
 
 
 @dataclass(frozen=True, kw_only=True)
 class ILetComfortBinarySensorDescription(BinarySensorEntityDescription):
     """Describe an iLetComfort binary sensor."""
 
-    is_on_fn: Any  # Callable[[dict], bool]
+    is_on_fn: Callable[[dict[str, Any]], bool | None]
 
 
 BINARY_SENSOR_DESCRIPTIONS: tuple[ILetComfortBinarySensorDescription, ...] = (
     ILetComfortBinarySensorDescription(
         key="compressor_running",
-        name="Compressor Running",
+        translation_key="compressor_running",
         device_class=BinarySensorDeviceClass.RUNNING,
-        is_on_fn=lambda data: (
-            data.get("status") is not None and data["status"].comp_running
-        ),
+        is_on_fn=compressor_running,
     ),
     ILetComfortBinarySensorDescription(
         key="ibh_running",
-        name="IBH Running",
+        translation_key="ibh_running",
         device_class=BinarySensorDeviceClass.RUNNING,
         is_on_fn=lambda data: (
             data.get("status") is not None and data["status"].ibh_running
@@ -46,7 +46,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[ILetComfortBinarySensorDescription, ...] = (
     ),
     ILetComfortBinarySensorDescription(
         key="error",
-        name="Error",
+        translation_key="error",
         device_class=BinarySensorDeviceClass.PROBLEM,
         is_on_fn=lambda data: (
             data.get("status") is not None and data["status"].error_code != 0
@@ -89,5 +89,5 @@ class ILetComfortBinarySensor(
     @property
     def is_on(self) -> bool | None:
         if self.coordinator.data is None:
-            return False
+            return None
         return self.entity_description.is_on_fn(self.coordinator.data)

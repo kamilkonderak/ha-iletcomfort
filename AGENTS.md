@@ -314,6 +314,7 @@ does not enforce per-appliance topic ACLs.
 
 ## 8. References
 
+- Canonical `17100007` query/write/offset reference: `docs/KJRH120L2_PROTOCOL.md`.
 - Protocol RE / CLI: <https://github.com/tgenov/iletcomfort-cli> (captured via iLetComfort **iOS app** +
   mitmproxy).
 - Out-of-scope (Midea MSmartHome) devices: <https://github.com/georgezhao2010/midea_ac_lan>,

@@ -92,6 +92,7 @@ KJRH120L2_HEAT_TOTAL_CAPACITY_INDEX = 146
 KJRH120L2_INSTANT_POWER_INDEX = 158
 KJRH120L2_INSTANT_RENEWABLE_POWER_INDEX = 162
 KJRH120L2_TOTAL_RENEWABLE_POWER_INDEX = 166
+KJRH120L2_INSTANT_POWER_SCALE = 100
 KJRH120L2_DHW_TEMP_MIN = 35
 KJRH120L2_DHW_TEMP_MAX = 60
 KJRH120L2_CONTROLLER_GROUPS = (
@@ -491,7 +492,10 @@ def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
         ("total_renewable_power", KJRH120L2_TOTAL_RENEWABLE_POWER_INDEX),
     ):
         if len(body) > index + 1:
-            setattr(sensors, attr, (body[index] << 8) | body[index + 1])
+            value = (body[index] << 8) | body[index + 1]
+            if attr in {"instant_power", "instant_renewable_power"}:
+                value /= KJRH120L2_INSTANT_POWER_SCALE
+            setattr(sensors, attr, value)
     if len(body) > KJRH120L2_PWM_PUMP_OUTPUT_INDEX:
         sensors.pwm_pump_output = body[KJRH120L2_PWM_PUMP_OUTPUT_INDEX]
     return sensors

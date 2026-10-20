@@ -339,6 +339,8 @@ def test_decode_kjrh120l2_sensor_temperatures():
     body[98:100] = bytes.fromhex("00 eb")
     body[100:102] = bytes.fromhex("01 a7")
     body[119:121] = bytes.fromhex("00 b4")
+    body[158:160] = bytes.fromhex("00 7c")
+    body[162:164] = bytes.fromhex("00 32")
 
     sensors = decode_kjrh120l2_sensors(body)
 
@@ -352,12 +354,14 @@ def test_decode_kjrh120l2_sensor_temperatures():
     assert sensors.twout_temp == 28.6
     assert sensors.th_temp == 42.3
     assert sensors.tf_temp == 18.0
+    assert sensors.instant_power == 1.24
+    assert sensors.instant_renewable_power == 0.5
 
 
 def test_decode_kjrh120l2_little_endian_whole_degree_temperature():
     """Accept the observed outdoor pair 0b 00 as 11 degrees."""
     body = bytearray(100)
-    body[98:100] = bytes.fromhex("0b 00")
+    body[18:20] = bytes.fromhex("0b 00")
 
     sensors = decode_kjrh120l2_sensors(body)
 

@@ -41,7 +41,7 @@ class ILetComfortMuteSelect(CoordinatorEntity[ILetComfortCoordinator], SelectEnt
     """Select entity for mute/silent mode."""
 
     _attr_has_entity_name = True
-    _attr_name = "Silent Mode"
+    _attr_translation_key = "silent_mode"
     _attr_icon = "mdi:volume-off"
     _attr_options = MUTE_OPTIONS
 
@@ -70,7 +70,7 @@ class ILetComfortKjrh120l2CurveTypeSelect(
     """Zone-1 weather-curve type for KJRH-120L2."""
 
     _attr_has_entity_name = True
-    _attr_name = "Zone-1 Weather Curve Type"
+    _attr_translation_key = "zone1_weather_curve_type"
     _attr_icon = "mdi:chart-bell-curve-cumulative"
     _attr_options = CURVE_TYPE_OPTIONS
 

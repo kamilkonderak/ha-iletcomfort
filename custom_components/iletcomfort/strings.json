@@ -1,4 +1,207 @@
 {
+  "entity": {
+    "climate": {
+      "heat_pump": {
+        "name": "Heat Pump"
+      }
+    },
+    "binary_sensor": {
+      "compressor_running": {
+        "name": "Compressor Running"
+      },
+      "ibh_running": {
+        "name": "IBH Running"
+      },
+      "error": {
+        "name": "Error"
+      }
+    },
+    "number": {
+      "dhw_setpoint": {
+        "name": "DHW Setpoint"
+      }
+    },
+    "select": {
+      "silent_mode": {
+        "name": "Silent Mode"
+      },
+      "zone1_weather_curve_type": {
+        "name": "Zone-1 Weather Curve Type"
+      }
+    },
+    "sensor": {
+      "water_inlet": {
+        "name": "Water Inlet Temperature"
+      },
+      "water_outlet": {
+        "name": "Water Outlet Temperature"
+      },
+      "dhw_tank": {
+        "name": "DHW Tank Temperature"
+      },
+      "outdoor_ambient": {
+        "name": "Outdoor Ambient Temperature"
+      },
+      "condenser": {
+        "name": "Condenser Temperature"
+      },
+      "evaporator": {
+        "name": "Evaporator Temperature"
+      },
+      "t2b_temperature": {
+        "name": "T2b Temperature"
+      },
+      "t1_temperature": {
+        "name": "T1 Temperature"
+      },
+      "refrigerant": {
+        "name": "Refrigerant Temperature"
+      },
+      "plate_hx": {
+        "name": "Plate Heat Exchanger Temperature"
+      },
+      "compressor_freq": {
+        "name": "Compressor Frequency"
+      },
+      "total_energy": {
+        "name": "Total Energy"
+      },
+      "comp_run_hours": {
+        "name": "Compressor Run Hours"
+      },
+      "pressure_high": {
+        "name": "High Pressure"
+      },
+      "pressure_low": {
+        "name": "Low Pressure"
+      },
+      "error_code": {
+        "name": "Error Code"
+      },
+      "operating_mode": {
+        "name": "Operating Mode"
+      },
+      "fan_run_hours": {
+        "name": "Fan Run Hours"
+      },
+      "zone1_dhw_setpoint": {
+        "name": "DHW Setpoint"
+      },
+      "weather_curve_enabled": {
+        "name": "Weather Curve Enabled"
+      },
+      "weather_curve_type": {
+        "name": "Weather Curve Type"
+      },
+      "odu_voltage": {
+        "name": "ODU Voltage"
+      },
+      "odu_current": {
+        "name": "ODU Current"
+      },
+      "water_flow": {
+        "name": "Water Flow"
+      },
+      "current_unit_capacity": {
+        "name": "Current Unit Capacity"
+      },
+      "pwm_pump_output": {
+        "name": "Pump Output"
+      },
+      "heat_total_capacity": {
+        "name": "Total Heat Capacity"
+      },
+      "instant_power": {
+        "name": "Instant Power"
+      },
+      "instant_renewable_power": {
+        "name": "Instant Renewable Power"
+      },
+      "total_renewable_power": {
+        "name": "Total Renewable Power"
+      },
+      "heating_capacity": {
+        "name": "Heating Capacity"
+      },
+      "heating_renewable_energy": {
+        "name": "Heating Renewable Energy"
+      },
+      "heating_electric_consumption": {
+        "name": "Heating Electricity Consumption"
+      },
+      "heating_cop": {
+        "name": "Heating COP"
+      },
+      "heating_day_capacity": {
+        "name": "Heating Day Capacity"
+      },
+      "heating_week_capacity": {
+        "name": "Heating Week Capacity"
+      },
+      "heating_month_capacity": {
+        "name": "Heating Month Capacity"
+      },
+      "heating_year_capacity": {
+        "name": "Heating Year Capacity"
+      },
+      "total_electric_consumption": {
+        "name": "Total Electricity Consumption"
+      },
+      "total_heat_pump_capacity": {
+        "name": "Total Heat Pump Capacity"
+      },
+      "total_renewable_energy": {
+        "name": "Total Renewable Energy"
+      },
+      "dhw_year_capacity": {
+        "name": "DHW Year Capacity"
+      },
+      "dhw_year_renewable_energy": {
+        "name": "DHW Year Renewable Energy"
+      },
+      "dhw_year_electric_consumption": {
+        "name": "DHW Year Electricity Consumption"
+      },
+      "dhw_year_cop": {
+        "name": "DHW Year COP"
+      },
+      "holiday_away_settings": {
+        "name": "Holiday Away Settings"
+      },
+      "silent_settings": {
+        "name": "Silent Settings"
+      },
+      "eco_settings": {
+        "name": "Eco Settings"
+      },
+      "disinfection_settings": {
+        "name": "Disinfection Settings"
+      },
+      "extended_2f10_raw": {
+        "name": "Extended 2F10 Raw Payload"
+      },
+      "extended_2f11_raw": {
+        "name": "Extended 2F11 Raw Payload"
+      },
+      "extended_2f12_raw": {
+        "name": "Extended 2F12 Raw Payload"
+      },
+      "zone1_curve_details": {
+        "name": "Zone-1 Weather Curve Details"
+      }
+    },
+    "switch": {
+      "boost": {
+        "name": "Boost"
+      },
+      "forced_tank_heater": {
+        "name": "Forced Tank Heater"
+      },
+      "zone1_weather_curve": {
+        "name": "Zone-1 Weather Curve"
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {

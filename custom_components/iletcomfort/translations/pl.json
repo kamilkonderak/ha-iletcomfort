@@ -1,0 +1,266 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pompa ciepła iLetComfort",
+        "description": "Podaj dane logowania do chmury iLetComfort / Dollin oraz wybierz region konta.",
+        "data": {
+          "email": "Adres e-mail",
+          "password": "Hasło",
+          "region": "Region"
+        }
+      },
+      "device": {
+        "title": "Wybierz urządzenie",
+        "description": "Wybierz urządzenie do dodania. Uruchom integrację ponownie, aby dodać kolejne urządzenia z tego samego konta.",
+        "data": {
+          "appliance_code": "Urządzenie"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Nieprawidłowy adres e-mail lub hasło.",
+      "cannot_connect": "Nie można połączyć się z chmurą Dollin. Jeśli konto jest zarejestrowane w Europie, zmień region na Europa. Sprawdź dziennik Home Assistant, aby uzyskać szczegóły.",
+      "no_devices": "Logowanie powiodło się, ale na koncie nie znaleziono urządzeń.",
+      "unknown": "Wystąpił nieoczekiwany błąd."
+    },
+    "abort": {
+      "already_configured": "To urządzenie jest już skonfigurowane."
+    }
+  },
+  "selector": {
+    "region": {
+      "options": {
+        "us": "Stany Zjednoczone",
+        "eu": "Europa"
+      }
+    },
+    "operation_mode": {
+      "options": {
+        "ha_primary": "Home Assistant jako główny klient (odpytywanie i sterowanie)",
+        "read_only": "Tylko odczyt (odpytywanie bez sterowania)",
+        "phone_app": "Pozostaw zalogowaną aplikację mobilną (tylko odczyt przez MQTT)"
+      }
+    }
+  },
+  "issues": {
+    "device_offline": {
+      "title": "Pompa ciepła jest prawdopodobnie offline",
+      "description": "Home Assistant od kilku minut otrzymuje puste odpowiedzi z urządzenia `{appliance_code}`, dlatego encje pokazują ostatnie znane wartości. Zwykle oznacza to utratę połączenia pompy z chmurą iLetComfort albo wyłączenie urządzenia. Sprawdź urządzenie w oficjalnej aplikacji iLetComfort / BTRI — jeśli tam również jest offline, problem dotyczy urządzenia lub chmury dostawcy, a nie Home Assistant. Zgłoszenie zostanie automatycznie usunięte, gdy urządzenie ponownie zacznie odpowiadać."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje iLetComfort",
+        "description": "Wybierz klienta zarządzającego sesją konta. Tryb Home Assistant jako głównego klienta zachowuje dotychczasowe odpytywanie i sterowanie. Tryb tylko do odczytu odpyta urządzenie, ale zablokuje polecenia sterujące Home Assistant. Tryb współpracy z aplikacją mobilną używa tylko odczytu przez MQTT, aby oficjalna aplikacja mogła pozostać zalogowana.",
+        "data": {
+          "operation_mode": "Tryb pracy"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "heat_pump": {
+        "name": "Pompa ciepła"
+      }
+    },
+    "binary_sensor": {
+      "compressor_running": {
+        "name": "Praca sprężarki"
+      },
+      "ibh_running": {
+        "name": "Praca grzałki IBH"
+      },
+      "error": {
+        "name": "Usterka"
+      }
+    },
+    "number": {
+      "dhw_setpoint": {
+        "name": "Zadana temperatura CWU"
+      }
+    },
+    "select": {
+      "silent_mode": {
+        "name": "Tryb cichy"
+      },
+      "zone1_weather_curve_type": {
+        "name": "Typ krzywej pogodowej strefy 1"
+      }
+    },
+    "sensor": {
+      "water_inlet": {
+        "name": "Temperatura wody na wlocie"
+      },
+      "water_outlet": {
+        "name": "Temperatura wody na wylocie"
+      },
+      "dhw_tank": {
+        "name": "Temperatura zasobnika CWU"
+      },
+      "outdoor_ambient": {
+        "name": "Temperatura zewnętrzna"
+      },
+      "condenser": {
+        "name": "Temperatura skraplacza"
+      },
+      "evaporator": {
+        "name": "Temperatura parownika"
+      },
+      "t2b_temperature": {
+        "name": "Temperatura T2b"
+      },
+      "t1_temperature": {
+        "name": "Temperatura T1"
+      },
+      "refrigerant": {
+        "name": "Temperatura czynnika chłodniczego"
+      },
+      "plate_hx": {
+        "name": "Temperatura płytowego wymiennika ciepła"
+      },
+      "compressor_freq": {
+        "name": "Częstotliwość sprężarki"
+      },
+      "total_energy": {
+        "name": "Całkowita energia"
+      },
+      "comp_run_hours": {
+        "name": "Czas pracy sprężarki"
+      },
+      "pressure_high": {
+        "name": "Wysokie ciśnienie"
+      },
+      "pressure_low": {
+        "name": "Niskie ciśnienie"
+      },
+      "error_code": {
+        "name": "Kod błędu"
+      },
+      "operating_mode": {
+        "name": "Tryb pracy"
+      },
+      "fan_run_hours": {
+        "name": "Czas pracy wentylatora"
+      },
+      "zone1_dhw_setpoint": {
+        "name": "Zadana temperatura CWU"
+      },
+      "weather_curve_enabled": {
+        "name": "Krzywa pogodowa włączona"
+      },
+      "weather_curve_type": {
+        "name": "Typ krzywej pogodowej"
+      },
+      "odu_voltage": {
+        "name": "Napięcie jednostki zewnętrznej"
+      },
+      "odu_current": {
+        "name": "Prąd jednostki zewnętrznej"
+      },
+      "water_flow": {
+        "name": "Przepływ wody"
+      },
+      "current_unit_capacity": {
+        "name": "Bieżąca wydajność jednostki (surowa wartość)"
+      },
+      "pwm_pump_output": {
+        "name": "Wyjście pompy (surowa wartość)"
+      },
+      "heat_total_capacity": {
+        "name": "Całkowita wydajność grzewcza (surowa wartość)"
+      },
+      "instant_power": {
+        "name": "Bieżąca moc"
+      },
+      "instant_renewable_power": {
+        "name": "Bieżąca moc odnawialna"
+      },
+      "total_renewable_power": {
+        "name": "Całkowita moc odnawialna (surowa wartość)"
+      },
+      "heating_capacity": {
+        "name": "Wyprodukowana energia grzewcza"
+      },
+      "heating_renewable_energy": {
+        "name": "Odnawialna energia grzewcza"
+      },
+      "heating_electric_consumption": {
+        "name": "Zużycie energii elektrycznej na ogrzewanie"
+      },
+      "heating_cop": {
+        "name": "COP ogrzewania"
+      },
+      "heating_day_capacity": {
+        "name": "Dzienna energia grzewcza"
+      },
+      "heating_week_capacity": {
+        "name": "Tygodniowa energia grzewcza"
+      },
+      "heating_month_capacity": {
+        "name": "Miesięczna energia grzewcza"
+      },
+      "heating_year_capacity": {
+        "name": "Roczna energia grzewcza"
+      },
+      "total_electric_consumption": {
+        "name": "Całkowite zużycie energii elektrycznej"
+      },
+      "total_heat_pump_capacity": {
+        "name": "Całkowita energia wyprodukowana przez pompę"
+      },
+      "total_renewable_energy": {
+        "name": "Całkowita energia odnawialna"
+      },
+      "dhw_year_capacity": {
+        "name": "Roczna energia CWU"
+      },
+      "dhw_year_renewable_energy": {
+        "name": "Roczna odnawialna energia CWU"
+      },
+      "dhw_year_electric_consumption": {
+        "name": "Roczne zużycie energii elektrycznej na CWU"
+      },
+      "dhw_year_cop": {
+        "name": "Roczny COP CWU"
+      },
+      "holiday_away_settings": {
+        "name": "Ustawienia trybu wakacyjnego — nieobecność"
+      },
+      "silent_settings": {
+        "name": "Ustawienia trybu cichego"
+      },
+      "eco_settings": {
+        "name": "Ustawienia trybu ECO"
+      },
+      "disinfection_settings": {
+        "name": "Ustawienia dezynfekcji"
+      },
+      "extended_2f10_raw": {
+        "name": "Surowe dane rozszerzone 2F10"
+      },
+      "extended_2f11_raw": {
+        "name": "Surowe dane rozszerzone 2F11"
+      },
+      "extended_2f12_raw": {
+        "name": "Surowe dane rozszerzone 2F12"
+      },
+      "zone1_curve_details": {
+        "name": "Szczegóły krzywej pogodowej strefy 1"
+      }
+    },
+    "switch": {
+      "boost": {
+        "name": "Szybkie podgrzewanie CWU"
+      },
+      "forced_tank_heater": {
+        "name": "Wymuszenie grzałki zasobnika"
+      },
+      "zone1_weather_curve": {
+        "name": "Krzywa pogodowa strefy 1"
+      }
+    }
+  }
+}

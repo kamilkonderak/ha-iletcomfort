@@ -40,7 +40,7 @@ class ILetComfortBoostSwitch(CoordinatorEntity[ILetComfortCoordinator], SwitchEn
     """Switch entity for boost mode."""
 
     _attr_has_entity_name = True
-    _attr_name = "Boost"
+    _attr_translation_key = "boost"
     _attr_icon = "mdi:rocket-launch"
 
     def __init__(self, coordinator: ILetComfortCoordinator) -> None:
@@ -73,7 +73,7 @@ class ILetComfortKjrh120l2TbhSwitch(
     """Forced tank-booster heater using captured KJRH-120L2 field 0x0A."""
 
     _attr_has_entity_name = True
-    _attr_name = "Forced Tank Heater"
+    _attr_translation_key = "forced_tank_heater"
     _attr_icon = "mdi:heating-coil"
 
     def __init__(self, coordinator: ILetComfortCoordinator) -> None:
@@ -99,7 +99,7 @@ class ILetComfortKjrh120l2CurveSwitch(
     """Zone-1 weather-curve enable switch for KJRH-120L2."""
 
     _attr_has_entity_name = True
-    _attr_name = "Zone-1 Weather Curve"
+    _attr_translation_key = "zone1_weather_curve"
     _attr_icon = "mdi:chart-bell-curve-cumulative"
 
     def __init__(self, coordinator: ILetComfortCoordinator) -> None:
