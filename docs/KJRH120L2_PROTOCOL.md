@@ -233,6 +233,17 @@ Compressor frequency and running state use that value only when it is numeric;
 missing or nonnumeric values remain unavailable. Compressor state is not
 inferred from Zone-1 power or the selected operating mode.
 
+The same rule applies to fields with no capture-backed binary offset. The fault
+entities read `error_code`/`error_new_code` (and `error_code_str`, where `/`
+means no fault) from `0x2010`. Backup-heater running reads `fgIBH1Output`/
+`fgIBH2Output`, and ODU voltage/current read `oduVoltage`/`oduCompCurrent`
+from `0x20B0`. Without the semantic parser these entities are unknown, never
+`0`/off. In the captured no-fault `0x2010` frame `body[69]` is `00`, but no
+non-zero fault capture exists to prove it is the fault byte. The STANDARD
+pressure, total-energy and compressor/fan run-hour sensors are not created for
+this model; the vendor's `pressureHigh`/`pressureLow`/`totalelectricity0`
+remain dynamic semantic diagnostics with no assumed unit.
+
 ## Energy groups
 
 Adopted `0x2F11` and `0x2F12` fields are unsigned big-endian 32-bit counters

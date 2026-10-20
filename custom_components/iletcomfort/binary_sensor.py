@@ -19,7 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import ILetComfortCoordinator
 from .entity import build_device_info
-from .semantic import compressor_running
+from .semantic import compressor_running, error_active, ibh_running
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -40,17 +40,13 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[ILetComfortBinarySensorDescription, ...] = (
         key="ibh_running",
         translation_key="ibh_running",
         device_class=BinarySensorDeviceClass.RUNNING,
-        is_on_fn=lambda data: (
-            data.get("status") is not None and data["status"].ibh_running
-        ),
+        is_on_fn=ibh_running,
     ),
     ILetComfortBinarySensorDescription(
         key="error",
         translation_key="error",
         device_class=BinarySensorDeviceClass.PROBLEM,
-        is_on_fn=lambda data: (
-            data.get("status") is not None and data["status"].error_code != 0
-        ),
+        is_on_fn=error_active,
     ),
 )
 

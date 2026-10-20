@@ -35,7 +35,10 @@ from .model_profiles import ModelProfile, resolve_profile
 from .semantic import (
     coerce_semantic_value,
     compressor_frequency,
+    error_code,
     iter_semantic_fields,
+    odu_current,
+    odu_voltage,
     semantic_field_name,
     semantic_value,
     zone1_curve_details,
@@ -250,7 +253,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         key="error_code",
         translation_key="error_code",
         icon="mdi:alert-circle-outline",
-        value_fn=_st("error_code"),
+        value_fn=error_code,
     ),
     ILetComfortSensorDescription(
         key="operating_mode",
@@ -292,7 +295,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_s("odu_voltage"),
+        value_fn=odu_voltage,
     ),
     # odu_current is decoded as fixed-point Amperes (raw 16-bit value / 256).
     # The ÷256 scale was confirmed against the official app for the MSC-70D2N8-A
@@ -304,7 +307,7 @@ SENSOR_DESCRIPTIONS: tuple[ILetComfortSensorDescription, ...] = (
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=_s("odu_current"),
+        value_fn=odu_current,
     ),
     ILetComfortSensorDescription(
         key="water_flow",
@@ -547,18 +550,25 @@ async def async_setup_entry(
     """Set up sensor entities."""
     coordinator: ILetComfortCoordinator = hass.data[DOMAIN][entry.entry_id]
     profile = resolve_profile(coordinator.sn8)
-    duplicate_kjrh120l2_sensors = {
+    # Duplicates of semantic/curve entities, plus STANDARD status counters
+    # this model has no capture-backed source for.
+    skipped_kjrh120l2_sensors = {
         "total_renewable_power",
         "zone1_dhw_setpoint",
         "weather_curve_enabled",
         "weather_curve_type",
+        "pressure_high",
+        "pressure_low",
+        "total_energy",
+        "comp_run_hours",
+        "fan_run_hours",
     }
     entities: list[SensorEntity] = [
         ILetComfortSensor(coordinator, description)
         for description in SENSOR_DESCRIPTIONS
         if not (
             profile is ModelProfile.KJRH120L2
-            and description.key in duplicate_kjrh120l2_sensors
+            and description.key in skipped_kjrh120l2_sensors
         )
     ]
     entities.extend(

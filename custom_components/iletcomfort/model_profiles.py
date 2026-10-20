@@ -420,12 +420,30 @@ def decode_kjrh120l_status(body: bytearray | bytes) -> ITSStatus:
     return status
 
 
+# No capture with a non-zero fault, running IBH, or non-zero counter exists for
+# this model, so none of these can be tied to a 0x2010 byte yet.
+_KJRH120L2_UNLOCATED_STATUS_FIELDS = (
+    "error_code",
+    "comp_running",
+    "ibh_running",
+    "pressure_h",
+    "pressure_l",
+    "total_kwh",
+    "comp_total_run_hours",
+    "fan_total_run_hours",
+)
+
+
 def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
-    """Decode confirmed KJRH-120L2 power and DHW fields."""
+    """Decode confirmed KJRH-120L2 power and DHW fields.
+
+    Fields with no capture-backed 0x2010 offset stay unknown rather than the
+    STANDARD defaults. Faults and IBH output come from the semantic parser.
+    """
     status = ITSStatus()
     status.raw_body = bytes(body)
-    status.error_code = 0
-    status.comp_running = None
+    for attr in _KJRH120L2_UNLOCATED_STATUS_FIELDS:
+        setattr(status, attr, None)
     status.mode_name = "Off"
     if len(body) > KJRH120L2_ZONE1_POWER_INDEX:
         status.mode = MODE_HEAT if body[KJRH120L2_ZONE1_POWER_INDEX] else MODE_OFF
@@ -456,7 +474,8 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
 
 def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
     """Decode the KJRH-120L2 20B0 telemetry response."""
-    sensors = ITSSensors(raw_body=bytes(body))
+    # oduVoltage/oduCompCurrent offsets are unconfirmed; see semantic.py.
+    sensors = ITSSensors(raw_body=bytes(body), odu_current=None, odu_voltage=None)
     for attr, index in (
         ("t2_temp", KJRH120L2_T2_TEMP_INDEX),
         ("t3_temp", KJRH120L2_T3_TEMP_INDEX),

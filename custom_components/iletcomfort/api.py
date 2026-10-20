@@ -294,7 +294,7 @@ class ITSStatus:
     force_heat_valid: bool = False
     sterilize_valid: bool = False
     comp_running: bool | None = False
-    ibh_running: bool = False
+    ibh_running: bool | None = False
     sterilize_running: bool = False
     status_flags_raw: int = 0
     enable_flags_1: int = 0
@@ -306,7 +306,7 @@ class ITSStatus:
     sterilize_min: int = 0
     sterilize_temperature: float | None = None
     sterilize_cycle_days: int = 0
-    error_code: int = 0
+    error_code: int | None = 0
     heat_pump_work_temp_limit: float | None = None
     vacation_start_year: int = 0
     vacation_start_month: int = 0
@@ -314,12 +314,12 @@ class ITSStatus:
     vacation_end_month: int = 0
     vacation_end_day: int = 0
     exv_drg: int = 0
-    pressure_h: int = 0
-    pressure_l: int = 0
+    pressure_h: int | None = 0
+    pressure_l: int | None = 0
     comp_frq: int | None = 0
-    total_kwh: int = 0
-    comp_total_run_hours: int = 0
-    fan_total_run_hours: int = 0
+    total_kwh: int | None = 0
+    comp_total_run_hours: int | None = 0
+    fan_total_run_hours: int | None = 0
     # KJRH-120L dual variant's separate DHW target (status body[15], issue #5).
     kjrh120l_dhw_setpoint: float | None = None
     # KJRH-120L2 base-control weather-curve state and type.
@@ -444,8 +444,8 @@ class ITSSensors:
     twin_temp: float | None = None
     twout_temp: float | None = None
     t1_temp: float | None = None
-    odu_current: float = 0.0
-    odu_voltage: int = 0
+    odu_current: float | None = 0.0
+    odu_voltage: int | None = 0
     dc_current: int = 0
     idu_version: str = ""
     odu_version: str = ""

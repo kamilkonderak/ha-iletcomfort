@@ -360,6 +360,31 @@ def test_decode_kjrh120l2_captured_telemetry_matches_vendor_parser():
     assert sensors.water_flow == 6.33
 
 
+def test_decode_kjrh120l2_status_leaves_unlocated_fields_unknown():
+    """Fields with no capture-backed 0x2010 offset are unknown, not 0/off.
+
+    The vendor parser reports error_code=0 for this frame, but no capture with
+    a non-zero fault exists, so no byte can be proven to carry the code.
+    """
+    status = decode_kjrh120l2_status(KJRH120L2_CAPTURED_2010[10:-1])
+
+    assert status.error_code is None
+    assert status.ibh_running is None
+    assert status.pressure_h is None
+    assert status.pressure_l is None
+    assert status.total_kwh is None
+    assert status.comp_total_run_hours is None
+    assert status.fan_total_run_hours is None
+
+
+def test_decode_kjrh120l2_sensors_leaves_odu_electrical_unknown():
+    """oduVoltage/oduCompCurrent offsets are unconfirmed in the 0x20B0 frame."""
+    sensors = decode_kjrh120l2_sensors(KJRH120L2_CAPTURED_20B0[10:-1])
+
+    assert sensors.odu_voltage is None
+    assert sensors.odu_current is None
+
+
 def test_decode_kjrh120l2_water_flow_is_16_bit():
     """Flows of 2.56 m3/h and above must not wrap at the low byte."""
     body = bytearray(KJRH120L2_CAPTURED_20B0[10:-1])
