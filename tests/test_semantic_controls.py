@@ -127,3 +127,133 @@ def test_custom_curve_details_estimates_active_target():
 
     assert entity.native_value == "Custom"
     assert entity.extra_state_attributes["estimated_water_target"] == 28
+
+
+# --- DHW schedule ------------------------------------------------------------
+
+from custom_components.iletcomfort.sensor import ILetComfortDhwScheduleSensor  # noqa: E402
+
+
+def _dhw_semantic(weekly_status: str = "off") -> dict[str, dict[str, str]]:
+    """Semantic 2020/20D0/2080 groups as captured from the official app."""
+    daily = {}
+    for timer in range(1, 7):
+        daily.update({
+            f"dhwdaytimer_timer{timer}en": "off",
+            f"dhwdaytimer_timer{timer}_mode": "off",
+            f"dhwdaytimer_timer{timer}_openhour": "0",
+            f"dhwdaytimer_timer{timer}_openmin": "0",
+            f"dhwdaytimer_timer{timer}_temp": "0",
+        })
+    weekly = {
+        "dhw_weeklytimer_status": weekly_status,
+        "dhw_weeklytimer_schedule_num": "4",
+    }
+    for schedule in range(1, 5):
+        base = f"dhw_weeklytimer_schedule_{schedule}"
+        weekly[f"{base}_status"] = "off"
+        weekly[f"{base}_weekday"] = "127"
+        for timer in range(1, 5):
+            prefix = f"{base}_timer_{timer}_"
+            weekly.update({
+                f"{prefix}en": "off",
+                f"{prefix}mode": "off",
+                f"{prefix}starthour": "0",
+                f"{prefix}startmin": "0",
+                f"{prefix}temp": "0",
+            })
+    installer = {
+        "dT5On": "5", "dT5STBHoff": "5", "t4Dhwmax": "43", "t4Dhwmin": "-10",
+        "tDHWHPmax": "90", "tDHWHPrestrict": "30", "fgdhwPriorEn": "on",
+        "tTBHdelay": "30", "t4TBHon": "5", "powerTbh": "2", "t5sDI": "65",
+        "tDImax": "210", "tDIhightemp": "15", "t5SHolDhw": "25",
+    }
+    return {"2020": daily, "20d0": weekly, "2080": installer}
+
+
+def _dhw_entity(semantic: dict[str, dict[str, str]]) -> ILetComfortDhwScheduleSensor:
+    coordinator = _coordinator()
+    coordinator.data["semantic"].update(semantic)
+    return ILetComfortDhwScheduleSensor(coordinator)
+
+
+def test_dhw_schedule_reports_captured_all_off_program():
+    entity = _dhw_entity(_dhw_semantic())
+
+    assert entity.native_value == "off"
+    attrs = entity.extra_state_attributes
+    assert attrs["weekly_enabled"] is False
+    assert attrs["daily_commands"] == []
+    assert [s["number"] for s in attrs["weekly_schedules"]] == [1, 2, 3, 4]
+    assert attrs["weekly_schedules"][0] == {
+        "number": 1,
+        "enabled": False,
+        "weekdays": [1, 2, 3, 4, 5, 6, 7],
+        "commands": [],
+    }
+    assert attrs["installer_settings"] == {
+        "restart_hysteresis": 5,
+        "tbh_off_hysteresis": 5,
+        "heat_pump_outdoor_max": 43,
+        "heat_pump_outdoor_min": -10,
+        "heat_pump_max_run_minutes": 90,
+        "heating_restrict_minutes": 30,
+        "dhw_priority": True,
+        "tbh_delay_minutes": 30,
+        "tbh_outdoor_on": 5,
+        "tbh_power_kw": 2,
+        "disinfection_temperature": 65,
+        "disinfection_max_minutes": 210,
+        "disinfection_hold_minutes": 15,
+        "holiday_temperature": 25,
+    }
+
+
+def test_dhw_schedule_lists_enabled_weekly_commands_in_time_order():
+    semantic = _dhw_semantic(weekly_status="on")
+    weekly = semantic["20d0"]
+    base = "dhw_weeklytimer_schedule_2"
+    weekly[f"{base}_status"] = "on"
+    weekly[f"{base}_weekday"] = "31"  # Monday-Friday
+    weekly.update({
+        f"{base}_timer_1_en": "on", f"{base}_timer_1_mode": "on",
+        f"{base}_timer_1_starthour": "13", f"{base}_timer_1_startmin": "30",
+        f"{base}_timer_1_temp": "50",
+        f"{base}_timer_2_en": "on", f"{base}_timer_2_mode": "on",
+        f"{base}_timer_2_starthour": "4", f"{base}_timer_2_startmin": "0",
+        f"{base}_timer_2_temp": "48",
+    })
+    entity = _dhw_entity(semantic)
+
+    assert entity.native_value == "weekly"
+    schedule = entity.extra_state_attributes["weekly_schedules"][1]
+    assert schedule["enabled"] is True
+    assert schedule["weekdays"] == [1, 2, 3, 4, 5]
+    assert schedule["commands"] == [
+        {"start": "04:00", "mode": "on", "temperature": 48},
+        {"start": "13:30", "mode": "on", "temperature": 50},
+    ]
+
+
+def test_dhw_schedule_reports_daily_program_when_weekly_is_off():
+    semantic = _dhw_semantic()
+    semantic["2020"].update({
+        "dhwdaytimer_timer3en": "on",
+        "dhwdaytimer_timer3_mode": "on",
+        "dhwdaytimer_timer3_openhour": "22",
+        "dhwdaytimer_timer3_openmin": "15",
+        "dhwdaytimer_timer3_temp": "55",
+    })
+    entity = _dhw_entity(semantic)
+
+    assert entity.native_value == "daily"
+    assert entity.extra_state_attributes["daily_commands"] == [
+        {"start": "22:15", "mode": "on", "temperature": 55},
+    ]
+
+
+def test_dhw_schedule_is_unknown_without_schedule_groups():
+    entity = _dhw_entity({})
+
+    assert entity.native_value is None
+    assert entity.extra_state_attributes["weekly_schedules"] == []

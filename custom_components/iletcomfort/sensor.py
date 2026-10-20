@@ -41,6 +41,8 @@ from .semantic import (
     odu_voltage,
     semantic_field_name,
     semantic_value,
+    dhw_schedule_details,
+    dhw_schedule_mode,
     zone1_curve_details,
     zone1_curve_profile,
 )
@@ -577,6 +579,7 @@ async def async_setup_entry(
     )
     if profile is ModelProfile.KJRH120L2:
         entities.append(ILetComfortCurveDetailsSensor(coordinator))
+        entities.append(ILetComfortDhwScheduleSensor(coordinator))
     async_add_entities(entities)
 
 
@@ -673,3 +676,31 @@ class ILetComfortCurveDetailsSensor(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return zone1_curve_details(self.coordinator.data)
+
+
+class ILetComfortDhwScheduleSensor(
+    CoordinatorEntity[ILetComfortCoordinator], SensorEntity,
+):
+    """Expose the controller's DHW daily/weekly program and DHW installer settings.
+
+    Read-only: no schedule write has been captured.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "dhw_schedule"
+    _attr_icon = "mdi:calendar-clock"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["weekly", "daily", "off"]
+
+    def __init__(self, coordinator: ILetComfortCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.appliance_code}_dhw_schedule"
+        self._attr_device_info = build_device_info(coordinator)
+
+    @property
+    def native_value(self) -> str | None:
+        return dhw_schedule_mode(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return dhw_schedule_details(self.coordinator.data)
