@@ -44,6 +44,7 @@ from .const import (
     MQTT_STATUS_STALE_AFTER,
 )
 from .model_profiles import (
+    KJRH120L2_BASE_GROUP_PREFIX,
     ModelProfile,
     apply_profile_to_sensors,
     apply_profile_to_status,
@@ -569,6 +570,14 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         initial snapshot from setup. Profile re-decoding matches the poll path so
         push and poll agree for values carried by the status frame.
         """
+        profile = resolve_profile(self.sn8)
+        is_kjrh120l2_frame = (
+            status.raw_body[:3] == KJRH120L2_BASE_GROUP_PREFIX
+        )
+        if is_kjrh120l2_frame != (profile is ModelProfile.KJRH120L2):
+            # A frame layout that does not belong to this model's profile
+            # would be decoded at the wrong offsets.
+            return
         self._last_push_status_at = time.monotonic()
         self._schedule_push_status_watchdog()
         if self.data is None:
@@ -577,10 +586,10 @@ class ILetComfortCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # with no sensors (entities read coordinator.data["sensors"]); the
             # imminent first poll delivers a complete snapshot.
             return
-        status = apply_profile_to_status(resolve_profile(self.sn8), status)
-        self.async_set_updated_data(
-            {"status": status, "sensors": self.data.get("sensors")}
-        )
+        status = apply_profile_to_status(profile, status)
+        # Keep sensors, energy, controller and semantic state from the last
+        # poll; the push replaces only the status frame.
+        self.async_set_updated_data({**self.data, "status": status})
 
     def _cancel_push_status_watchdog(self) -> None:
         if self._push_status_watchdog is not None:

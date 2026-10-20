@@ -70,6 +70,31 @@ def test_decode_push_payload_returns_status_from_command_hex():
     assert status.set_temperature == 50
 
 
+# Real KJRH-120L2 base-group push (marker 0x04) from an iOS app capture. Its
+# body starts with the 00 20 10 group code instead of a 0x01 subtype.
+KJRH120L2_PUSH_HEX = (
+    "aa7cc300000000000004002010ff1cffff00ffff01ff010300f07fff00f001c201ff0000"
+    "0000010101000000000000000000020202022600fa00fa0032022600fa00fa0032012c00"
+    "aa025800c801a700010102ff010130000000002f00000000000000000000000000000100"
+    "6e0001ffff001a0a120e01ff0000ff00f6"
+)
+
+
+def test_decode_push_payload_decodes_kjrh120l2_base_group():
+    status = decode_push_payload(_push_payload(KJRH120L2_PUSH_HEX))
+
+    assert isinstance(status, ITSStatus)
+    assert status.mode_name == "Heat"
+    assert status.kjrh120l_dhw_setpoint == 45.0
+    assert status.kjrh120l2_curve_type == 2
+
+
+def test_decode_push_payload_ignores_kjrh120l2_energy_group():
+    energy_hex = KJRH120L2_PUSH_HEX.replace("002010ff1c", "002f12ff1c", 1)
+
+    assert decode_push_payload(_push_payload(energy_hex)) is None
+
+
 def test_decode_push_payload_ignores_non_status_messages():
     control = json.dumps({"messageType": "control", "data": {"foo": "bar"}})
 

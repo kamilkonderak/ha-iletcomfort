@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -912,6 +913,50 @@ async def test_push_status_updates_data_keeping_sensors(hass: HomeAssistant):
     assert coordinator.data["status"].set_temperature == 42
     # sensors come from the poll, not the push — keep the last good ones
     assert coordinator.data["sensors"] is prior_sensors
+
+
+async def test_push_status_keeps_kjrh120l2_enrichment(hass: HomeAssistant):
+    """A KJRH-120L2 push replaces status only; energy/semantic data survive."""
+    entry = _entry_push(True)
+    entry.add_to_hass(hass)
+    coordinator = ILetComfortCoordinator(hass, entry)
+    coordinator.appliance_meta = {"sn8": "17100007"}
+    energy = object()
+    semantic = {"2010": {"zone1_curve_type": "2"}}
+    coordinator.async_set_updated_data({
+        "status": ITSStatus(mode=0),
+        "sensors": ITSSensors(),
+        "energy": energy,
+        "semantic": semantic,
+    })
+
+    body = bytearray(114)
+    body[0:3] = b"\x00\x20\x10"
+    body[10] = 1
+    coordinator._apply_push_status(ITSStatus(raw_body=bytes(body)))
+
+    assert coordinator.data["status"].mode_name == "Heat"
+    assert coordinator.data["energy"] is energy
+    assert coordinator.data["semantic"] is semantic
+
+
+async def test_push_status_rejects_frame_from_other_layout(hass: HomeAssistant):
+    """A subtype-0x01 push is not decoded with KJRH-120L2 offsets, or vice versa."""
+    entry = _entry_push(True)
+    entry.add_to_hass(hass)
+    coordinator = ILetComfortCoordinator(hass, entry)
+    coordinator.appliance_meta = {"sn8": "17100007"}
+    prior = ITSStatus(mode=0)
+    coordinator.async_set_updated_data({"status": prior, "sensors": ITSSensors()})
+
+    coordinator._apply_push_status(ITSStatus(mode=1, raw_body=b"\x01\x01"))
+    assert coordinator.data["status"] is prior
+
+    coordinator.appliance_meta = {"sn8": "171H120F"}
+    coordinator._apply_push_status(
+        ITSStatus(mode=1, raw_body=b"\x00\x20\x10" + bytes(111))
+    )
+    assert coordinator.data["status"] is prior
 
 
 async def test_push_status_ignored_before_first_poll(hass: HomeAssistant):

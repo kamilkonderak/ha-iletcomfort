@@ -44,7 +44,7 @@ KJRH-120L2 (sn8 ``17100007``)
     commands are supported. The Zone-1 setpoint and other heating fields remain
     unvalidated; the DHW target is decoded separately from bytes 20-21. The
     Zone-1 weather-curve enabled flag and type are read from status bytes 22
-    and 78, with captured writes for fields ``0x36`` and ``0x2d``.
+    and 72, with captured writes for fields ``0x36`` and ``0x2d``.
 
 For both ATW and AQUAPURA the tank temperature is routed to ``th_temp`` and the
 "Water Inlet Temperature" sensor (``twin_temp``) is left honest (no real inlet
@@ -68,13 +68,16 @@ KJRH120L_SN8 = "17100003"
 KJRH120L2_SN8 = "17100007"
 KJRH120L2_QUERY = "aa14c300000000000003002010ffffffff00fffffc"
 KJRH120L2_SENSORS_QUERY = "aa14c3000000000000030020b0ffffffff00ffff5c"
+KJRH120L2_BASE_GROUP_PREFIX = b"\x00\x20\x10"
 KJRH120L2_DHW_SETPOINT_INDEX = 20
 KJRH120L2_ZONE1_POWER_INDEX = 10
 KJRH120L2_CURVE_ENABLED_INDEX = 22
 KJRH120L2_TBH_INDEX = 24
 KJRH120L2_FAST_DHW_INDEX = 25
-KJRH120L2_CURVE_TYPE_INDEX = 78
-KJRH120L2_CURVE_TYPE_LEGACY_INDEX = 77
+# Real 0x2010 frame (2026-10-18): body[72]=02 matched the vendor parser's
+# zone1_curve_type=2 and body[73]=ff its Zone-2 "invalid", mirroring the
+# curve-state pair at body[22]/[23]. body[77]/[78] were 00 in that frame.
+KJRH120L2_CURVE_TYPE_INDEX = 72
 KJRH120L2_T2_TEMP_INDEX = 96
 KJRH120L2_T3_TEMP_INDEX = 16
 KJRH120L2_T4_TEMP_INDEX = 18
@@ -85,7 +88,12 @@ KJRH120L2_T1_TEMP_INDEX = 92
 KJRH120L2_T2B_TEMP_INDEX = 98
 KJRH120L2_DHW_TEMP_INDEX = 100
 KJRH120L2_TF_TEMP_INDEX = 119
-KJRH120L2_WATER_FLOW_INDEX = 126
+# waterFlow is an unsigned big-endian 16-bit value in hundredths of m³/h
+# (vendor parser: 00 26 -> 0.38). The controller's service screen and the
+# installation manual both use m³/h; HA receives litres per minute.
+KJRH120L2_WATER_FLOW_INDEX = 125
+KJRH120L2_WATER_FLOW_SCALE = 100
+M3H_TO_LPM = 1000 / 60
 KJRH120L2_CURRENT_CAPACITY_INDEX = 129
 KJRH120L2_PWM_PUMP_OUTPUT_INDEX = 139
 KJRH120L2_HEAT_TOTAL_CAPACITY_INDEX = 146
@@ -435,17 +443,6 @@ def decode_kjrh120l2_status(body: bytearray | bytes) -> ITSStatus:
     if len(body) > KJRH120L2_CURVE_TYPE_INDEX:
         curve_type = body[KJRH120L2_CURVE_TYPE_INDEX]
         status.kjrh120l2_curve_type = curve_type if 1 <= curve_type <= 9 else None
-        if (
-            status.kjrh120l2_curve_type is None
-            and len(body) > KJRH120L2_CURVE_TYPE_LEGACY_INDEX
-        ):
-            curve_type = body[KJRH120L2_CURVE_TYPE_LEGACY_INDEX]
-            status.kjrh120l2_curve_type = (
-                curve_type if 1 <= curve_type <= 9 else None
-            )
-    elif len(body) > KJRH120L2_CURVE_TYPE_LEGACY_INDEX:
-        curve_type = body[KJRH120L2_CURVE_TYPE_LEGACY_INDEX]
-        status.kjrh120l2_curve_type = curve_type if 1 <= curve_type <= 9 else None
     if len(body) > KJRH120L2_DHW_SETPOINT_INDEX + 1:
         dhw_setpoint = (
             (body[KJRH120L2_DHW_SETPOINT_INDEX] << 8)
@@ -482,8 +479,11 @@ def decode_kjrh120l2_sensors(body: bytearray | bytes) -> ITSSensors:
         sensors.th_temp = _decode_kjrh120l2_temperature(
             body[KJRH120L2_DHW_TEMP_INDEX], body[KJRH120L2_DHW_TEMP_INDEX + 1],
         )
-    if len(body) > KJRH120L2_WATER_FLOW_INDEX:
-        sensors.water_flow = body[KJRH120L2_WATER_FLOW_INDEX] / 100
+    if len(body) > KJRH120L2_WATER_FLOW_INDEX + 1:
+        flow_m3h = int.from_bytes(
+            body[KJRH120L2_WATER_FLOW_INDEX:KJRH120L2_WATER_FLOW_INDEX + 2], "big",
+        ) / KJRH120L2_WATER_FLOW_SCALE
+        sensors.water_flow = round(flow_m3h * M3H_TO_LPM, 2)
     for attr, index in (
         ("current_unit_capacity", KJRH120L2_CURRENT_CAPACITY_INDEX),
         ("heat_total_capacity", KJRH120L2_HEAT_TOTAL_CAPACITY_INDEX),
@@ -820,6 +820,7 @@ __all__ = [
     "KJRH120L_DHW_TEMP_MAX",
     "KJRH120L_DHW_TEMP_MIN",
     "KJRH120L_SN8",
+    "KJRH120L2_BASE_GROUP_PREFIX",
     "KJRH120L2_QUERY",
     "KJRH120L2_SENSORS_QUERY",
     "KJRH120L2_DHW_SETPOINT_INDEX",

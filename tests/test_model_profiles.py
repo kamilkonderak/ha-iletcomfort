@@ -294,36 +294,78 @@ def test_kjrh120l2_curve_commands_match_captures(builder, value, expected):
     assert builder(value) == expected
 
 
+# Real KJRH-120L2 frames from an official iOS app capture (2026-10-18),
+# cross-checked against the vendor parser's JSON for the same frames.
+KJRH120L2_CAPTURED_2010 = bytes.fromhex(
+    "aa7cc300000000000004002010ff1cffff00ffff01ff010300f07fff00f001c201ff0000"
+    "0000010101000000000000000000020202022600fa00fa0032022600fa00fa0032012c00"
+    "aa025800c801a700010102ff010130000000002f00000000000000000000000000000100"
+    "6e0001ffff001a0a120e01ff0000ff00f6"
+)
+KJRH120L2_CAPTURED_20B0 = bytes.fromhex(
+    "aabac3000000000000030020b0ff1cffff00ffff001300000200006e006e00fa00dc00de"
+    "00000700000000000000e501e00a0100000000000000000000000000000000000000000"
+    "1000000ff010100000000000000000000000000000000000101000100000000e2000000"
+    "e700eb01a70000000000001e007100d200c30200001f00b400f07fff0026000000000000"
+    "006e000000000000000987000002ed00000112000002ed00000004000000000000015e00"
+    "00000000000000dc"
+)
+
+
+def test_decode_kjrh120l2_captured_base_status_matches_vendor_parser():
+    """The real 0x2010 frame decodes to the vendor parser's values."""
+    status = decode_kjrh120l2_status(KJRH120L2_CAPTURED_2010[10:-1])
+
+    assert status.mode_name == "Heat"  # zone1_power_state=on
+    assert status.kjrh120l_dhw_setpoint == 45.0  # dhw_temp_set=45
+    assert status.kjrh120l2_curve_enabled is True  # zone1_curve_state=on
+    assert status.kjrh120l2_curve_type == 2  # zone1_curve_type=2
+    assert status.kjrh120l2_tbh_enabled is False  # forcetbh_state=off
+    assert status.kjrh120l2_fast_dhw_enabled is False  # fastdhw_state=off
+
+
 def test_decode_kjrh120l2_curve_state_and_type():
-    """Status body[22] and body[78] report curve state and type."""
-    body = bytearray(79)
-    body[22] = 1
-    body[78] = 2
+    """Status body[22] and body[72] report curve state and type."""
+    body = bytearray(KJRH120L2_CAPTURED_2010[10:-1])
+    body[22] = 0
+    body[72] = 9
 
     status = decode_kjrh120l2_status(body)
 
-    assert status.kjrh120l2_curve_enabled is True
-    assert status.kjrh120l2_curve_type == 2
+    assert status.kjrh120l2_curve_enabled is False
+    assert status.kjrh120l2_curve_type == 9
 
 
-def test_decode_kjrh120l2_curve_type_from_short_status_frame():
-    """Accept the deployed frame variant with the type at the prior offset."""
-    body = bytearray(78)
-    body[77] = 2
+def test_decode_kjrh120l2_invalid_curve_type_is_unavailable():
+    """The 0xff "invalid" marker (as on unused Zone-2) is not a curve type."""
+    body = bytearray(KJRH120L2_CAPTURED_2010[10:-1])
+    body[72] = 0xFF
 
-    status = decode_kjrh120l2_status(body)
-
-    assert status.kjrh120l2_curve_type == 2
+    assert decode_kjrh120l2_status(body).kjrh120l2_curve_type is None
 
 
-def test_decode_kjrh120l2_curve_type_falls_back_from_invalid_captured_offset():
-    """Use the prior offset when a full frame reports no valid type at body[78]."""
-    body = bytearray(79)
-    body[77] = 2
+def test_decode_kjrh120l2_captured_telemetry_matches_vendor_parser():
+    """The real 0x20B0 frame decodes to the vendor parser's values."""
+    sensors = decode_kjrh120l2_sensors(KJRH120L2_CAPTURED_20B0[10:-1])
 
-    status = decode_kjrh120l2_status(body)
+    assert sensors.t1_temp == 22.6
+    assert sensors.t3_temp == 11.0
+    assert sensors.t4_temp == 11.0
+    assert sensors.tp_temp == 25.0
+    assert sensors.twin_temp == 22.0
+    assert sensors.twout_temp == 22.2
+    assert sensors.th_temp == 42.3  # tempT5
+    assert sensors.tf_temp == 18.0
+    # waterFlow=0.38 m3/h, exposed in L/min.
+    assert sensors.water_flow == 6.33
 
-    assert status.kjrh120l2_curve_type == 2
+
+def test_decode_kjrh120l2_water_flow_is_16_bit():
+    """Flows of 2.56 m3/h and above must not wrap at the low byte."""
+    body = bytearray(KJRH120L2_CAPTURED_20B0[10:-1])
+    body[125:127] = (300).to_bytes(2, "big")  # 3.00 m3/h
+
+    assert decode_kjrh120l2_sensors(body).water_flow == 50.0
 
 
 def test_decode_kjrh120l2_sensor_temperatures():

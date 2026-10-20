@@ -13,6 +13,8 @@ Hardware-confirmed shape (see issue #55):
 * The payload is JSON: ``{"messageType": "status", "data": {"commandHex": ...}}``
   where ``commandHex`` is a standard C3 subtype-``0x01`` frame — so it decodes
   through the same pipeline as a polled status response, no new decoder.
+  KJRH-120L2 instead pushes group-addressed frames; its base ``0x2010`` group
+  is decoded with the same layout as the polled base status.
 * C3 has no dedicated ``hbt`` topic, but idle units have been observed to
   publish full ``dev`` status snapshots roughly every 15 minutes. The
   coordinator uses those valid status frames as an end-to-end freshness signal
@@ -47,6 +49,7 @@ from .api import (
     mask_identifier,
     parse_hex_response,
 )
+from .model_profiles import KJRH120L2_BASE_GROUP_PREFIX, decode_kjrh120l2_status
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -113,9 +116,17 @@ def decode_push_payload(payload: str) -> ITSStatus | None:
         subtype, body = extract_c3_body(raw)
     except (ValueError, IndexError):
         return None
+    if bytes(body[:3]) == KJRH120L2_BASE_GROUP_PREFIX:
+        # KJRH-120L2 publishes group-addressed frames (marker 0x04) whose body
+        # starts with the group code instead of a subtype byte. Only the base
+        # 0x2010 group carries status; 2F11/2F12/20B1 pushes are ignored.
+        try:
+            return decode_kjrh120l2_status(body)
+        except (ValueError, IndexError):
+            return None
     if subtype != 0x01:
         # Only status frames update entity state here; other subtypes are
-        # ignored (the push topic carries status frames only).
+        # ignored.
         return None
     try:
         return decode_its_status(body)

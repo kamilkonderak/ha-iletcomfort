@@ -42,6 +42,7 @@ aa <length> c3 00 00 00 00 00 00 <marker> <body...> <checksum>
 | `c3` | Heat-pump device type |
 | `marker=03` | Query |
 | `marker=02` | Write/control |
+| `marker=04` | Unsolicited device report (MQTT push and app captures) |
 | `checksum` | Two's-complement checksum |
 
 The checksum satisfies:
@@ -172,12 +173,24 @@ The builders calculate checksums; callers must not concatenate frames manually.
 | `[22]` | Zone-1 curve enabled | Boolean | Captured/local test |
 | `[24]` | Forced TBH state | Boolean | Captured on/off response |
 | `[25]` | Fast DHW state | Boolean | Captured on/off response |
-| `[77]` | Legacy curve-type fallback | `1..8=Standard`, `9=Custom` | Deployed short variant |
-| `[78]` | Zone-1 curve type | `1..8=Standard`, `9=Custom` | Captured/local test |
+| `[72]` | Zone-1 curve type | `1..8=Standard`, `9=Custom`; `ff` = invalid | Captured frame matched vendor parser |
+| `[73]` | Zone-2 curve type | as above (`ff` when Zone-2 is absent) | Captured frame matched vendor parser |
+
+Earlier releases read the curve type from `[77]`/`[78]`. Those offsets came
+from synthetic test bodies and were `00` in the real captured frame; they are
+no longer used.
 
 The local status profile deliberately does not infer unvalidated base fields.
 Semantic decode exposes additional read-only names, but those names are not byte
 offsets and do not authorize writes.
+
+## Pushed frames
+
+The device publishes `marker=04` reports for `0x2010`, `0x2F11`, `0x2F12` and
+`0x20B1`. Their bodies start with the group code (`00 20 10`), not a `0x01`
+subtype. Phone-app mode decodes pushed `0x2010` frames with the base-status
+offsets above and keeps the last polled telemetry, energy and semantic data.
+Other pushed groups are ignored.
 
 ## Runtime telemetry (`0x20B0`) offsets
 
@@ -197,7 +210,7 @@ most 100, the decoder accepts the little-endian whole-degree form.
 | `[98:100]` | `t2b_temp` | temperature pair, °C |
 | `[100:102]` | `th_temp` / DHW tank | temperature pair, °C |
 | `[119:121]` | `tf_temp` / refrigerant | temperature pair, °C |
-| `[126]` | `water_flow` | raw ÷ 100 L/min |
+| `[125:127]` | `water_flow` | unsigned 16-bit ÷ 100 = m³/h (controller unit); HA exposes L/min (× 1000/60) |
 | `[129:131]` | `current_unit_capacity` | unsigned 16-bit; scale unresolved |
 | `[139]` | `pwm_pump_output` | raw byte; unit unresolved |
 | `[146:148]` | `heat_total_capacity` | unsigned 16-bit; scale unresolved |
@@ -669,7 +682,7 @@ request shape and the device's resulting state.
 | Boost switch (Fast DHW) | Body `[25]`; write field `0x0B` |
 | Forced Tank Heater switch | Body `[24]`; write field `0x0A` |
 | Zone-1 Weather Curve switch | Body `[22]`; write field `0x36` |
-| Zone-1 Weather Curve Type select | Body `[77]/[78]`; write field `0x2D` |
+| Zone-1 Weather Curve Type select | Body `[72]`; write field `0x2D` |
 | Zone-1 Weather Curve Details sensor | Semantic state plus `0x2080` custom endpoints; read-only |
 | Dynamic semantic sensors | Successful semantic decode fields; read-only |
 

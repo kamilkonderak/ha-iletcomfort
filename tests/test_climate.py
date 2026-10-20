@@ -313,7 +313,9 @@ async def test_kjrh120l2_climate_rejects_unvalidated_heating_setpoint():
 async def test_kjrh120l_dual_climate_rejects_unvalidated_writes(method, kwargs):
     """No climate action may send an unvalidated Zone-1 command."""
     entity = _climate(KJRH120L_SN8, ITSSensors(), _dual_kjrh_status())
-    with pytest.raises(HomeAssistantError, match="Zone-1 control"):
+    with pytest.raises(
+        HomeAssistantError, match="write command has not been validated"
+    ):
         await getattr(entity, method)(**kwargs)
     entity.coordinator.async_set_device.assert_not_awaited()
 
