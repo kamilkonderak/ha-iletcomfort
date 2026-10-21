@@ -425,6 +425,7 @@ def decode_kjrh120l_status(body: bytearray | bytes) -> ITSStatus:
 _KJRH120L2_UNLOCATED_STATUS_FIELDS = (
     "error_code",
     "comp_running",
+    "comp_frq",
     "ibh_running",
     "pressure_h",
     "pressure_l",

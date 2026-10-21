@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.iletcomfort.binary_sensor import BINARY_SENSOR_DESCRIPTIONS
+from custom_components.iletcomfort.model_profiles import decode_kjrh120l2_status
 from custom_components.iletcomfort.semantic import (
     compressor_frequency,
     compressor_running,
@@ -28,6 +29,32 @@ def test_compressor_state_uses_semantic_frequency(frequency, expected_running):
         None if frequency == "invalid" else int(frequency)
     )
     assert compressor_running(data) is expected_running
+
+
+@pytest.mark.parametrize(
+    ("frequency", "expected_running"),
+    [("0", False), ("55", True)],
+)
+def test_kjrh120l2_status_frame_defers_to_semantic_frequency(
+    frequency, expected_running,
+):
+    # A decoded 0x2010 frame has no compressor-frequency byte; its comp_frq
+    # must not default to 0 and mask the vendor's compRunFreq.
+    data = {
+        "status": decode_kjrh120l2_status(bytes(200)),
+        "semantic": {"20b0": {"compRunFreq": frequency}},
+    }
+
+    assert data["status"].comp_frq is None
+    assert compressor_frequency(data) == int(frequency)
+    assert compressor_running(data) is expected_running
+
+
+def test_kjrh120l2_compressor_state_unknown_without_semantic_frequency():
+    data = {"status": decode_kjrh120l2_status(bytes(200)), "semantic": {}}
+
+    assert compressor_frequency(data) is None
+    assert compressor_running(data) is None
 
 
 def test_compressor_state_remains_unknown_without_a_valid_frequency():
