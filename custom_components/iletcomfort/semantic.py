@@ -34,7 +34,7 @@ SEMANTIC_FIELDS_WITH_NATIVE_ENTITIES = {
         "tempT3",
         "tempT4",
         "tempTf",
-        "tempTh",
+        # tempTh (compressor suction) stays: the native th_temp is the DHW tank.
         "tempTp",
         "tempTwin",
         "tempTwout",
