@@ -12,6 +12,7 @@ from custom_components.iletcomfort.semantic import (
     compressor_frequency,
     compressor_running,
     iter_semantic_fields,
+    semantic_field_name,
 )
 
 
@@ -127,3 +128,17 @@ def test_semantic_iterator_omits_values_with_curated_entities():
     assert ("20b0", "roomRelHum") in fields
     assert ("2f11", "SysHeatRenewPower") not in fields
     assert ("2f11", "SysCoolCapacity") in fields
+
+
+def test_semantic_iterator_exposes_suction_temperature():
+    # Th (compressor suction) has no native entity on KJRH-120L2: the native
+    # "DHW Tank Temperature" sensor's th_temp attribute carries T5, not Th.
+    fields = set(
+        iter_semantic_fields(
+            {"semantic": {"20b0": {"tempTh": "19.5", "tempT5": "42.3", "tempTp": "25"}}}
+        )
+    )
+
+    assert ("20b0", "tempTh") in fields
+    assert ("20b0", "tempTp") not in fields
+    assert semantic_field_name("tempTh") == "Temp Th"
